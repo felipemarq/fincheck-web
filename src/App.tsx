@@ -1,35 +1,32 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "./App.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import Page from "./view/pages/Dashboard";
+import { ModeToggle } from "./view/components/ui/mode-toggle";
+import { Toaster } from "./view/components/ui/sonner";
+import { Router } from "./Router";
 
 function App() {
-  const [count, setCount] = useState(0)
+  // Configurando uma instância do QueryClient com opções padrão
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        refetchOnWindowFocus: false,
+      },
+    },
+  });
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <div className=" w-full h-full flex flex-col">
+          <Router />
+          <Toaster />
+        </div>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
 }
 
-export default App
+export default App;
