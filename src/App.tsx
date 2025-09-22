@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./App.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import Page from "./view/pages/Dashboard";
-import { ModeToggle } from "./view/components/ui/mode-toggle";
 import { Toaster } from "./view/components/ui/sonner";
 import { Router } from "./Router";
+import { AuthProvider } from "./app/contexts/AuthContext";
+import { ErrorBoundary } from "./view/components/ErrorBoundary";
+import { ErrorBoundaryFallback } from "./view/components/ErrorBoundaryFallback";
 
 function App() {
   // Configurando uma instância do QueryClient com opções padrão
@@ -20,10 +21,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <div className=" w-full h-full flex flex-col">
-          <Router />
-          <Toaster />
-        </div>
+        <ErrorBoundary fallback={<ErrorBoundaryFallback />}>
+          <AuthProvider>
+            <div className=" w-full h-full flex flex-col">
+              <Router />
+              <Toaster />
+            </div>
+          </AuthProvider>
+        </ErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>
   );

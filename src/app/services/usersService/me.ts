@@ -4,6 +4,6 @@ import { httpClient } from "../httpClient";
 type MeResponse = User;
 
 export const me = async () => {
-  const { data } = await httpClient.get<MeResponse>("/users/me");
-  return data;
+  const { data } = await httpClient.get<MeResponse>("/me");
+  return data; // <- já retorna o User direto
 };

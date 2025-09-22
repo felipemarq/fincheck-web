@@ -6,12 +6,12 @@ import type { User } from "../entities/User";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { treatAxiosError } from "../utils/treatAxiosError";
 import { AxiosError } from "axios";
-import { usersService } from "../services/users";
 import logo from "@/assets/moneystack_wordmark.png";
+import { usersService } from "../services/usersService";
 
 interface AuthContextValue {
   signedIn: boolean;
-  user?: User;
+  user: User | null;
   signin(accessToken: string): void;
   signout(): void;
 }
@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signout = useCallback(() => {
+    console.log("deu erro");
     localStorage.removeItem(localStorageKeys.ACCESS_TOKEN);
     setSignedIn(false);
     queryClient.invalidateQueries({ queryKey: [QueryKeys.ME] });
@@ -49,6 +50,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     staleTime: Infinity,
   });
 
+  console.log("dataee", JSON.stringify(data));
+
   useEffect(() => {
     if (isError) {
       treatAxiosError((error as Error) || AxiosError);
@@ -59,10 +62,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider
       value={{
-        signedIn: isSuccess && signedIn,
+        signedIn: isSuccess,
         signin,
         signout,
-        user: data,
+        user: data ?? null,
       }}
     >
       {isFetching && <PageLoader isLoading={isFetching} logoPath={logo} />}

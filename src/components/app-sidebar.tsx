@@ -31,6 +31,7 @@ import {
   SidebarMenuItem,
 } from "@/view/components/ui/sidebar";
 import { ModeToggle } from "@/view/components/ui/mode-toggle";
+import { useAuth } from "@/app/hooks/useAuth";
 
 const data = {
   user: {
@@ -150,6 +151,8 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, signout } = useAuth();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -173,7 +176,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user!} onLogout={signout} />
         <ModeToggle />
       </SidebarFooter>
     </Sidebar>

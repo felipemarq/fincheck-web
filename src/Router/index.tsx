@@ -5,7 +5,8 @@ import { LoginLayout } from "@/view/Layouts/LoginLayout";
 import AppLayout from "@/view/Layouts/AppLayout";
 import { PageLoader } from "@/view/components/PageLoader";
 import Dashboard from "@/view/pages/Dashboard";
-import Login from "@/view/pages/Login";
+const Register = lazy(() => import("@/view/pages/Register"));
+const Login = lazy(() => import("@/view/pages/Login"));
 
 export const Router = () => {
   return (
@@ -15,6 +16,7 @@ export const Router = () => {
           <Route element={<AuthGuard isPrivate={false} />}>
             <Route element={<LoginLayout />}>
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
             </Route>
           </Route>
 

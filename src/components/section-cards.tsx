@@ -1,5 +1,9 @@
-import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
-
+// src/view/modules/dashboard/SectionCards.tsx
+import {
+  IconTrendingDown,
+  IconTrendingUp,
+  IconMinus,
+} from "@tabler/icons-react";
 import { Badge } from "@/view/components/ui/badge";
 import {
   Card,
@@ -9,92 +13,181 @@ import {
   CardHeader,
   CardTitle,
 } from "@/view/components/ui/card";
+import type {
+  Basis,
+  DashboardResponse,
+  Delta,
+} from "@/app/services/dashboardService/get";
 
-export function SectionCards() {
+type SectionCardsProps = {
+  dashboard: DashboardResponse;
+  basis?: Basis;
+  isFetchingDashboard: boolean;
+};
+
+const fmtBRL = (n: number | undefined) =>
+  (n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function DeltaBadge({ delta }: { delta?: Delta }) {
+  if (!delta) {
+    return (
+      <Badge variant="outline">
+        <IconMinus className="mr-1 h-4 w-4" />
+        —%
+      </Badge>
+    );
+  }
+  const pct =
+    delta.deltaPct == null
+      ? "—%"
+      : `${delta.deltaPct > 0 ? "+" : ""}${delta.deltaPct}%`;
+
+  const Icon =
+    delta.trend === "up"
+      ? IconTrendingUp
+      : delta.trend === "down"
+      ? IconTrendingDown
+      : IconMinus;
+
+  const color =
+    delta.trend === "up"
+      ? "text-emerald-600 border-emerald-600"
+      : delta.trend === "down"
+      ? "text-rose-600 border-rose-600"
+      : "text-muted-foreground";
+
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-      <Card className="@container/card">
+    <Badge variant="outline" className={color}>
+      <Icon className="mr-1 h-4 w-4" />
+      {pct}
+    </Badge>
+  );
+}
+
+export function SectionCards({
+  dashboard,
+  isFetchingDashboard,
+  basis = "cash",
+}: SectionCardsProps) {
+  const totals = dashboard?.cashflow?.totals;
+  const insights = dashboard?.insights?.cashflow;
+  const tax = dashboard?.tax;
+  const taxInsight = dashboard?.insights?.tax?.estimated;
+
+  const prevLabel = dashboard?.previousRange
+    ? new Date(dashboard.previousRange.from).toLocaleDateString("pt-BR", {
+        timeZone: "UTC",
+      }) +
+      " – " +
+      new Date(dashboard.previousRange.to).toLocaleDateString("pt-BR", {
+        timeZone: "UTC",
+      })
+    : "período anterior";
+
+  // loaders simples (pode trocar por Skeleton do seu design system)
+  const loading = isFetchingDashboard && !dashboard;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      {/* Receitas */}
+      <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
         <CardHeader>
-          <CardDescription>Total Revenue</CardDescription>
+          <CardDescription>
+            Receitas ({basis === "cash" ? "Caixa" : "Competência"})
+          </CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            $1,250.00
+            {loading ? "—" : fmtBRL(totals?.income)}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
-            </Badge>
+            <DeltaBadge delta={insights?.income} />
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <IconTrendingUp className="size-4" />
+            {insights?.income?.trend === "up"
+              ? "Subiu neste período"
+              : insights?.income?.trend === "down"
+              ? "Caiu neste período"
+              : "Estável neste período"}
+          </div>
+          <div className="text-muted-foreground">Comparado a {prevLabel}</div>
+        </CardFooter>
+      </Card>
+
+      {/* Despesas */}
+      <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
+        <CardHeader>
+          <CardDescription>
+            Despesas ({basis === "cash" ? "Caixa" : "Competência"})
+          </CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {loading ? "—" : fmtBRL(totals?.expense)}
+          </CardTitle>
+          <CardAction>
+            <DeltaBadge delta={insights?.expense} />
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            {insights?.expense?.trend === "up"
+              ? "Aumentaram"
+              : insights?.expense?.trend === "down"
+              ? "Diminuíram"
+              : "Estáveis"}
+          </div>
+          <div className="text-muted-foreground">Comparado a {prevLabel}</div>
+        </CardFooter>
+      </Card>
+
+      {/* Resultado (Net) */}
+      <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
+        <CardHeader>
+          <CardDescription>Resultado (Net)</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {loading ? "—" : fmtBRL(totals?.net)}
+          </CardTitle>
+          <CardAction>
+            <DeltaBadge delta={insights?.net} />
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            {insights?.net?.trend === "up"
+              ? "Resultado melhor"
+              : insights?.net?.trend === "down"
+              ? "Resultado pior"
+              : "Resultado estável"}
+          </div>
+          <div className="text-muted-foreground">Comparado a {prevLabel}</div>
+        </CardFooter>
+      </Card>
+
+      {/* Imposto estimado (competência do mês) */}
+      <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
+        <CardHeader>
+          <CardDescription>
+            Imposto estimado ({tax?.month ?? "—"})
+          </CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {loading ? "—" : fmtBRL(tax?.estimatedTax)}
+          </CardTitle>
+          <CardAction>
+            <DeltaBadge delta={taxInsight} />
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            {tax?.missingRate
+              ? "Configure a alíquota do mês"
+              : taxInsight?.trend === "up"
+              ? "Tributo maior que no mês anterior"
+              : taxInsight?.trend === "down"
+              ? "Tributo menor que no mês anterior"
+              : "Sem variação"}
           </div>
           <div className="text-muted-foreground">
-            Visitors for the last 6 months
+            Comparado a {dashboard?.insights?.tax?.prevMonth ?? "mês anterior"}
           </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>New Customers</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            1,234
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingDown />
-              -20%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <IconTrendingDown className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            Acquisition needs attention
-          </div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Active Accounts</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            45,678
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <IconTrendingUp className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Engagement exceed targets</div>
-        </CardFooter>
-      </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Growth Rate</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            4.5%
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +4.5%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance increase <IconTrendingUp className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
         </CardFooter>
       </Card>
     </div>

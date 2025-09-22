@@ -5,10 +5,7 @@ interface PageLoaderProps {
   logoPath?: string;
 }
 
-export const PageLoader = ({ logoPath, isLoading }: PageLoaderProps) => {
-  if (!isLoading) {
-    return null;
-  }
+export const PageLoader = ({ logoPath }: PageLoaderProps) => {
   return (
     <div className="bg-primary fixed top-0 left-0 h-full w-full grid place-items-center z-50">
       <div className="flex justify-center items-center gap-4 flex-col">

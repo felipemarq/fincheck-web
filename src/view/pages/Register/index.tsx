@@ -12,12 +12,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
-import { useLogin } from "./useLogin";
+import { useRegister } from "./useRegister";
 
-export default function Login() {
-  const { handleSubmit, register, errors, isLoading } = useLogin();
+export default function Register() {
+  const { handleSubmit, register, errors, isLoading } = useRegister();
   return (
-    <div className=" flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+    <div className=" flex flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <div className="flex items-center gap-2 self-center font-medium">
           <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
@@ -28,13 +28,22 @@ export default function Login() {
         <div className={cn("flex flex-col gap-6")}>
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Bem vindo de volta</CardTitle>
-              <CardDescription>Faça o login na sua conta</CardDescription>
+              <CardTitle className="text-xl">Seja Bem vindo</CardTitle>
+              <CardDescription>Crie a sua conta</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit}>
                 <div className="grid gap-6">
                   <div className="grid gap-6">
+                    <div className="grid gap-3">
+                      <Label htmlFor="email">Nome</Label>
+                      <Input
+                        type="text"
+                        placeholder="Nome"
+                        {...register("name")}
+                        error={errors.name?.message}
+                      />
+                    </div>
                     <div className="grid gap-3">
                       <Label htmlFor="email">Email</Label>
                       <Input
@@ -63,15 +72,15 @@ export default function Login() {
                     </div>
                     <Button
                       type="submit"
-                      className="mt-2 w-full bg-primary hover:bg-primary-dark text-white"
+                      className="w-full"
                       disabled={isLoading}
                     >
-                      {isLoading ? "Carregando..." : "Fazer Login"}
+                      Registrar
                     </Button>
                   </div>
                   <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                     <span className="bg-card text-muted-foreground relative z-10 px-2">
-                      Ou faça o login com sua conta Google (em breve)
+                      Ou crie usando a sua conta Google (em breve)
                     </span>
                   </div>
                   <div className="flex flex-col gap-4 cursor-not-allowed">
@@ -85,17 +94,13 @@ export default function Login() {
                           fill="currentColor"
                         />
                       </svg>
-                      Login com Google
+                      Criar conta com Google
                     </Button>
                   </div>
-
                   <div className="text-center text-sm">
-                    Não tem uma conta?{" "}
-                    <Link
-                      to="/register"
-                      className="underline underline-offset-4"
-                    >
-                      Crie uma conta
+                    Já possui uma conta?{" "}
+                    <Link to="/login" className="underline underline-offset-4">
+                      Faça o login aqui
                     </Link>
                   </div>
                 </div>

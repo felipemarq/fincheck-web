@@ -8,15 +8,13 @@ interface AuthGuardProps {
 export const AuthGuard = ({ isPrivate }: AuthGuardProps) => {
   // Obtém o estado de autenticação do contexto
   const { signedIn } = useAuth();
-  const test = true;
+  console.log({ signedIn });
 
-  console.log("signedIn", signedIn);
-
-  if (!test && isPrivate) {
+  if (!signedIn && isPrivate) {
     return <Navigate to="/login" replace />;
   }
 
-  if (test && !isPrivate) {
+  if (signedIn && !isPrivate) {
     return <Navigate to="/" replace />;
   }
   // Se estiver autenticado e a rota for privada, permite o acesso à rota privada
