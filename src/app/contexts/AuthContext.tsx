@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useState } from "react";
+import { createContext, use, useCallback, useEffect, useState } from "react";
 import { localStorageKeys } from "../config/localStorageKeys";
 import { QueryKeys } from "../config/QueryKeys";
 import { PageLoader } from "@/view/components/PageLoader";
@@ -14,6 +14,7 @@ interface AuthContextValue {
   user: User | null;
   signin(accessToken: string): void;
   signout(): void;
+  selectedEntityId: string | null;
 }
 
 export const AuthContext = createContext({} as AuthContextValue);
@@ -26,6 +27,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return !!storedAccessToken;
   });
+
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -50,14 +53,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     staleTime: Infinity,
   });
 
-  console.log("dataee", JSON.stringify(data));
+  console.log("dataee", JSON.stringify(selectedEntityId));
+  console.log("user", data);
 
   useEffect(() => {
     if (isError) {
       treatAxiosError((error as Error) || AxiosError);
       signout();
     }
+
+    if (isSuccess) {
+      setSelectedEntityId(data?.entities[0].id);
+    }
   }, [isError, signout]);
+
+  useEffect(() => {
+    if (data) {
+      setSelectedEntityId(data?.entities[0].id);
+    }
+  }, [data]);
 
   return (
     <AuthContext.Provider
@@ -66,6 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signin,
         signout,
         user: data ?? null,
+        selectedEntityId,
       }}
     >
       {isFetching && <PageLoader isLoading={isFetching} logoPath={logo} />}
