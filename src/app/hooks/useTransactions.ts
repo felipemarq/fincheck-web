@@ -5,10 +5,7 @@ import type {
   ListTransactionsResponse,
 } from "../services/transactionService/getAll";
 import { transactionService } from "../services/transactionService";
-
-export const QueryKeys = {
-  TRANSACTIONS: "transactions",
-};
+import { QueryKeys } from "../config/QueryKeys";
 
 export function useTransactions(
   filters: ListTransactionsParams,

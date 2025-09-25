@@ -33,7 +33,7 @@ import { transactionService } from "@/app/services/transactionService";
 import { useAccounts } from "@/app/hooks/useAccounts";
 import { DatePickerInput } from "../components/DatePickerInput";
 import { useCategories } from "@/app/hooks/useCategories";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // ==== Types & Schema ====
 export type TransactionType = "INCOME" | "EXPENSE";
@@ -84,6 +84,17 @@ export function TransactionModal({
   const handleHasDueDateChange = (hasDueDate: boolean) => {
     setHasDueDate(!!hasDueDate);
   };
+  const defaultValues = {
+    accountId: transaction?.accountId ?? "", // TODO: selecionar conta
+    categoryId: transaction?.categoryId ?? "", // TODO: selecionar categoria
+    name: transaction?.name ?? "", // TODO: preencher nome
+    value: transaction?.value ?? 0,
+    type: transaction?.type ?? type.EXPENSE,
+    isPaid: transaction?.isPaid ?? false, // TODO: selecionar pago
+    date: transaction?.date ? new Date(transaction.date) : new Date(), // TODO: preencher data
+    dueDate: transaction?.dueDate ? new Date(transaction.dueDate) : undefined, // TODO: preencher vencimento
+    notes: transaction?.notes ?? "", // 1: preencher notas
+  };
   const { isFetchingAccounts, accounts } = useAccounts({
     entityId: selectedEntityId!,
   });
@@ -92,25 +103,18 @@ export function TransactionModal({
     entityId: selectedEntityId!,
   });
 
+  console.log({ transaction });
+
   const {
     control,
     register,
     handleSubmit: hookFormHandleSubmit,
     formState: { errors },
     watch,
+    reset,
   } = useForm<TransactionFormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      accountId: transaction?.accountId ?? "", // TODO: selecionar conta
-      categoryId: transaction?.categoryId ?? "", // TODO: selecionar categoria
-      name: transaction?.name ?? "", // TODO: preencher nome
-      value: transaction?.value ?? 0,
-      type: transaction?.type ?? type.EXPENSE,
-      isPaid: transaction?.isPaid ?? false, // TODO: selecionar pago
-      date: transaction?.date ? new Date(transaction.date) : new Date(), // TODO: preencher data
-      dueDate: transaction?.dueDate ? new Date(transaction.dueDate) : undefined, // TODO: preencher vencimento
-      notes: transaction?.notes ?? "", // 1: preencher notas
-    },
+    defaultValues,
   });
   const {
     isPending: isLoadingCreateTransaction,
@@ -119,7 +123,18 @@ export function TransactionModal({
     mutationFn: transactionService.create,
   });
 
-  // TODO: adicionar mutate de update quando existir no service
+  useEffect(() => {
+    if (transaction) {
+      reset(defaultValues);
+    }
+  }, [transaction]);
+
+  const {
+    isPending: isLoadingUpdateTransaction,
+    mutateAsync: mutateAsyncUpdateTransaction,
+  } = useMutation({
+    mutationFn: transactionService.update,
+  });
 
   const onSubmit = hookFormHandleSubmit(async (data) => {
     try {
@@ -136,18 +151,39 @@ export function TransactionModal({
           dueDate: data.dueDate?.toISOString() ?? undefined,
           notes: data.notes,
         });
-        queryClient.invalidateQueries({
-          queryKey: [QueryKeys.RECURRING_TRANSACTIONS],
-        });
-        queryClient.invalidateQueries({ queryKey: [QueryKeys.TRANSACTIONS] });
-        queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
-        queryClient.refetchQueries();
+
         toast.success("Transação criada com sucesso!");
       }
 
-      if (action === "update") {
+      if (action === "update" && !transaction) {
+        toast.error("Transação não encontrada");
+        onClose();
+        return;
+      }
+
+      if (action === "update" && transaction) {
+        await mutateAsyncUpdateTransaction({
+          transactionId: transaction?.id!,
+          entityId: selectedEntityId!,
+          accountId: data.accountId,
+          categoryId: data.categoryId,
+          name: data.name,
+          value: Number(data.value),
+          type: data.type,
+          isPaid: data.isPaid,
+          date: data.date.toISOString(),
+          dueDate: data.dueDate?.toISOString() ?? undefined,
+          notes: data.notes,
+        });
         toast.success("Transação atualizada com sucesso!");
       }
+
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.RECURRING_TRANSACTIONS],
+      });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.TRANSACTIONS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
+      queryClient.refetchQueries();
 
       onClose();
     } catch (error) {
@@ -369,7 +405,9 @@ export function TransactionModal({
             </Button>
             <Button
               type="submit"
-              isLoading={isLoadingCreateTransaction}
+              isLoading={
+                isLoadingCreateTransaction || isLoadingUpdateTransaction
+              }
               className="flex-1"
             >
               Salvar

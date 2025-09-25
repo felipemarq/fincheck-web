@@ -45,7 +45,6 @@ import {
 import { toast } from "sonner";
 
 import { Badge } from "@/view/components/ui/badge";
-import { Button } from "@/view/components/ui/button";
 //import { Checkbox } from "@/view/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -87,9 +86,25 @@ import type {
   ListTransactionsParams,
   TransactionWithRefsDTO,
 } from "@/app/services/transactionService/getAll";
-import type { TransactionType } from "../modals/TransactionModal";
+import {
+  TransactionModal,
+  type TransactionType,
+} from "../modals/TransactionModal";
 import { useTransactions } from "@/app/hooks/useTransactions";
 import { TRANSACTION_TYPE_LABELS_PT } from "../i18n/pt/transaction";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { transactionService } from "@/app/services/transactionService";
+import { treatAxiosError } from "@/app/utils/treatAxiosError";
+import type { AxiosError } from "axios";
+import { QueryKeys } from "@/app/config/QueryKeys";
+import { Button } from "@/components/ui/button";
 
 // ---------------- utils ----------------
 function formatMoney(v: number) {
@@ -123,153 +138,6 @@ function DragHandle({ id }: { id: UniqueIdentifier }) {
 
 // -------------- Colunas --------------
 type RowType = TransactionWithRefsDTO;
-
-const columns: ColumnDef<RowType>[] = [
-  /*  {
-    id: "drag",
-    header: () => null,
-    cell: ({ row }) => <DragHandle id={row.original.id} />,
-    enableSorting: false,
-    enableHiding: false,
-  }, */
-  /*  {
-    id: "select",
-    header: ({ table }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="flex items-center justify-center">
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      </div>
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  }, */
-  {
-    accessorKey: "date",
-    header: "Data",
-    enableSorting: true, // mapeado p/ sortBy=date
-    cell: ({ row }) => formatDateIso(row.original.date),
-  },
-  {
-    accessorKey: "name",
-    header: "Nome",
-    enableSorting: true, // sortBy=name
-    cell: ({ row }) => (
-      <TableCellViewer item={row.original as TransactionWithRefsDTO} />
-    ),
-  },
-  {
-    accessorKey: "type",
-    header: "Tipo",
-    cell: ({ row }) => {
-      const t = row.original.type;
-      const color =
-        t === "INCOME"
-          ? "border-green-500 text-green-600"
-          : "border-red-500 text-red-600";
-      return (
-        <Badge variant="outline" className={`px-1.5 ${color}`}>
-          {TRANSACTION_TYPE_LABELS_PT[t]}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: "value",
-    header: () => <div className="w-full text-right">Valor</div>,
-    enableSorting: true, // sortBy=value
-    cell: ({ row }) => {
-      const v = row.original.value;
-      const t = row.original.type;
-      const signed = t === "EXPENSE" ? -Math.abs(v) : Math.abs(v);
-      const cls = t === "EXPENSE" ? "text-red-600" : "text-green-600";
-      return (
-        <div className={`text-right font-medium ${cls}`}>
-          {formatMoney(signed)}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "isPaid",
-    header: "Pago",
-    cell: ({ row }) => (
-      <Badge variant="outline" className="px-1.5">
-        {row.original.isPaid ? (
-          <>
-            <IconCircleCheckFilled className="mr-1 fill-green-500 dark:fill-green-400" />{" "}
-            Pago
-          </>
-        ) : (
-          <>
-            <IconLoader className="mr-1" /> Em aberto
-          </>
-        )}
-      </Badge>
-    ),
-  },
-  {
-    accessorKey: "dueDate",
-    header: "Venc.",
-    cell: ({ row }) => formatDateIso(row.original.dueDate),
-  },
-  {
-    accessorKey: "account.name",
-    header: "Conta",
-    cell: ({ row }) => row.original.account?.name,
-  },
-  {
-    accessorKey: "category.name",
-    header: "Categoria",
-    cell: ({ row }) => row.original.category?.name,
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-            size="icon"
-          >
-            <IconDotsVertical />
-            <span className="sr-only">Menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem onClick={() => toast.message("Editar (WIP)")}>
-            Editar
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => toast.message("Duplicar (WIP)")}>
-            Duplicar
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => toast.message(`Excluir ${row.original.name} (WIP)`)}
-          >
-            <IconTrash className="mr-2" /> Excluir
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-  },
-];
 
 // -------------- Filtros UI model --------------
 type LocalFilters = {
@@ -326,6 +194,61 @@ export function TransactionsTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
+
+  const queryClient = useQueryClient();
+  const [transactionIdBeeingDeleted, settransactionIBeeingDeleted] =
+    React.useState<string | null>(null);
+  const [transactionBeeingEdited, setTransactionBeeingEdited] =
+    React.useState<TransactionWithRefsDTO | null>(null);
+  const [isEditTransactionModalOpen, setIsEditTransactionModalOpen] =
+    React.useState(false);
+  const [isDeleteTransactionModalOpen, setIsDeleteTransactionModalOpen] =
+    React.useState(false);
+
+  const openDeleteTransactionModal = (transactionId: string) => {
+    settransactionIBeeingDeleted(transactionId);
+    setIsDeleteTransactionModalOpen(true);
+  };
+
+  const closeDeleteTransactionModal = () => {
+    settransactionIBeeingDeleted(null);
+    setIsDeleteTransactionModalOpen(false);
+  };
+
+  const openEditTransactionModal = (transaction: TransactionWithRefsDTO) => {
+    setTransactionBeeingEdited(transaction);
+    setIsEditTransactionModalOpen(true);
+  };
+
+  const closeEditTransactionModal = () => {
+    setTransactionBeeingEdited(null);
+    setIsEditTransactionModalOpen(false);
+  };
+
+  const {
+    isPending: isLoadingRemoveTransaction,
+    mutateAsync: mutateAsyncRemoveTransaction,
+  } = useMutation({
+    mutationFn: transactionService.remove,
+  });
+
+  const onDeleteTransaction = async (transactionId: string) => {
+    try {
+      await mutateAsyncRemoveTransaction({
+        transactionId,
+        entityId,
+      });
+      closeDeleteTransactionModal();
+      toast.success("Transação excluída com sucesso!");
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.RECURRING_TRANSACTIONS],
+      });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.TRANSACTIONS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
+    } catch (error) {
+      treatAxiosError(error as AxiosError);
+    }
+  };
 
   // build filtros p/ API
   const apiFilters: ListTransactionsParams = React.useMemo(
@@ -385,6 +308,154 @@ export function TransactionsTable({
     }
   } */
 
+  const columns: ColumnDef<RowType>[] = [
+    /*  {
+    id: "drag",
+    header: () => null,
+    cell: ({ row }) => <DragHandle id={row.original.id} />,
+    enableSorting: false,
+    enableHiding: false,
+  }, */
+    /*  {
+    id: "select",
+    header: ({ table }) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      </div>
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      </div>
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  }, */
+    {
+      accessorKey: "date",
+      header: "Data",
+      enableSorting: true, // mapeado p/ sortBy=date
+      cell: ({ row }) => formatDateIso(row.original.date),
+    },
+    {
+      accessorKey: "name",
+      header: "Nome",
+      enableSorting: true, // sortBy=name
+      cell: ({ row }) => (
+        <TableCellViewer item={row.original as TransactionWithRefsDTO} />
+      ),
+    },
+    {
+      accessorKey: "type",
+      header: "Tipo",
+      cell: ({ row }) => {
+        const t = row.original.type;
+        const color =
+          t === "INCOME"
+            ? "border-green-500 text-green-600"
+            : "border-red-500 text-red-600";
+        return (
+          <Badge variant="outline" className={`px-1.5 ${color}`}>
+            {TRANSACTION_TYPE_LABELS_PT[t]}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "value",
+      header: () => <div className="w-full text-right">Valor</div>,
+      enableSorting: true, // sortBy=value
+      cell: ({ row }) => {
+        const v = row.original.value;
+        const t = row.original.type;
+        const signed = t === "EXPENSE" ? -Math.abs(v) : Math.abs(v);
+        const cls = t === "EXPENSE" ? "text-red-600" : "text-green-600";
+        return (
+          <div className={`text-right font-medium ${cls}`}>
+            {formatMoney(signed)}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "isPaid",
+      header: "Pago",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="px-1.5">
+          {row.original.isPaid ? (
+            <>
+              <IconCircleCheckFilled className="mr-1 fill-green-500 dark:fill-green-400" />{" "}
+              Pago
+            </>
+          ) : (
+            <>
+              <IconLoader className="mr-1" /> Em aberto
+            </>
+          )}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "dueDate",
+      header: "Venc.",
+      cell: ({ row }) => formatDateIso(row.original.dueDate),
+    },
+    {
+      accessorKey: "account.name",
+      header: "Conta",
+      cell: ({ row }) => row.original.account?.name,
+    },
+    {
+      accessorKey: "category.name",
+      header: "Categoria",
+      cell: ({ row }) => row.original.category?.name,
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+              size="icon"
+            >
+              <IconDotsVertical />
+              <span className="sr-only">Menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={() => openEditTransactionModal(row.original)}
+            >
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => console.log(row)}>
+              Duplicar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => openDeleteTransactionModal(row.original.id)}
+            >
+              <IconTrash className="mr-2" /> Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
   const table = useReactTable({
     data: items,
     columns,
@@ -815,6 +886,46 @@ export function TransactionsTable({
           </div>
         </div>
       </div>
+      <Dialog
+        open={isDeleteTransactionModalOpen}
+        onOpenChange={setIsDeleteTransactionModalOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Você tem certeza?</DialogTitle>
+            <DialogDescription>
+              Essa ação não pode ser desfeita. Isso irá permanentemente excluir
+              a transação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex space-x-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => closeDeleteTransactionModal()}
+              className="flex-1"
+              isLoading={isLoadingRemoveTransaction}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1"
+              variant="destructive"
+              onClick={() => onDeleteTransaction(transactionIdBeeingDeleted!)}
+              isLoading={isLoadingRemoveTransaction}
+            >
+              Deletar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <TransactionModal
+        isOpen={isEditTransactionModalOpen}
+        onClose={closeEditTransactionModal}
+        action="update"
+        //@ts-ignore
+        transaction={transactionBeeingEdited}
+      />
     </div>
   );
 }
