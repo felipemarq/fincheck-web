@@ -1,12 +1,6 @@
 import { ChartAreaInteractive } from "@/components/chart-area-interactive";
-import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
-
-import data from "./data.json";
-import { useDashboard } from "@/app/hooks/useDashboard";
-
 import { AccountModal } from "@/view/modals/AccountModal";
-import { useState } from "react";
 import {
   DashboardContext,
   DashboardContextProvider,
@@ -14,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { TransactionModal } from "@/view/modals/TransactionModal";
 import { QuickActions } from "./components/QuickActions";
+import { TransactionsTable } from "@/view/components/TransactionTable";
+import { TopCategoriesChart } from "./components/TopCategoriesChart";
 
 export default function Dashboard() {
   return (
@@ -30,30 +26,35 @@ export default function Dashboard() {
           closeNewTransactionModal,
           isNewTransactionModalOpen,
           openNewTransactionModal,
+          selectedEntityId,
         }) => (
           <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <SectionCards
               dashboard={dashboard!}
               isFetchingDashboard={isFetchingDashboard}
             />
-            <Button onClick={openNewAccountModal}>Nova Conta</Button>
-            <Button onClick={openNewTransactionModal}>Nova Transação</Button>
             <TransactionModal
               isOpen={isNewTransactionModalOpen}
               onClose={closeNewTransactionModal}
               action="create"
             />
-            <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-2">
               <div className="">
-                <ChartAreaInteractive />
+                <TopCategoriesChart
+                  topCategories={dashboard?.topCategories ?? []}
+                  title="Gastos por Categoria"
+                />
               </div>
 
               <div className="">
-                <QuickActions />
+                <QuickActions
+                  onNewAccountClick={openNewAccountModal}
+                  onNewTransactionClick={openNewTransactionModal}
+                />
               </div>
             </div>
+            <TransactionsTable entityId={selectedEntityId!} />
 
-            <DataTable data={data} />
             <AccountModal
               isOpen={isNewAccountModalOpen}
               onClose={closeNewAccountModal}

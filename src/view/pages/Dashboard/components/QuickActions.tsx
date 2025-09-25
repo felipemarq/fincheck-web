@@ -9,9 +9,17 @@ import {
   Settings,
 } from "lucide-react";
 
-export function QuickActions() {
+interface QuickActionsProps {
+  onNewTransactionClick: () => void;
+  onNewAccountClick: () => void;
+}
+
+export function QuickActions({
+  onNewAccountClick,
+  onNewTransactionClick,
+}: QuickActionsProps) {
   return (
-    <Card>
+    <Card className=" h-full">
       <CardHeader>
         <CardTitle>Ações Rápidas</CardTitle>
       </CardHeader>
@@ -19,6 +27,7 @@ export function QuickActions() {
         <Button
           variant="outline"
           className="h-auto p-4 flex flex-col gap-2 bg-transparent"
+          onClick={onNewTransactionClick}
         >
           <PlusCircle className="h-5 w-5 text-brand" />
           <span className="text-sm font-medium">Nova Transação</span>
@@ -27,9 +36,10 @@ export function QuickActions() {
         <Button
           variant="outline"
           className="h-auto p-4 flex flex-col gap-2 bg-transparent"
+          onClick={onNewAccountClick}
         >
-          <CreditCard className="h-5 w-5 text-accent" />
-          <span className="text-sm font-medium">Pagar Fatura</span>
+          <CreditCard className="h-5 w-5 text-brand" />
+          <span className="text-sm font-medium">Nova Conta</span>
         </Button>
 
         <Button

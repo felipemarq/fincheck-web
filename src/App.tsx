@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "./App.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "./view/components/ui/sonner";
@@ -30,6 +31,7 @@ function App() {
           </AuthProvider>
         </ErrorBoundary>
       </ThemeProvider>
+      <ReactQueryDevtools />
     </QueryClientProvider>
   );
 }

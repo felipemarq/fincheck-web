@@ -109,13 +109,9 @@ export function TransactionModal({
       isPaid: transaction?.isPaid ?? false, // TODO: selecionar pago
       date: transaction?.date ? new Date(transaction.date) : new Date(), // TODO: preencher data
       dueDate: transaction?.dueDate ? new Date(transaction.dueDate) : undefined, // TODO: preencher vencimento
-      notes: transaction?.notes ?? "", // TODO: preencher notas
+      notes: transaction?.notes ?? "", // 1: preencher notas
     },
   });
-
-  const watchValue = watch("dueDate");
-  console.log("watchValue", watchValue);
-
   const {
     isPending: isLoadingCreateTransaction,
     mutateAsync: mutateAsyncCreateTransaction,
@@ -137,10 +133,15 @@ export function TransactionModal({
           type: data.type,
           isPaid: data.isPaid,
           date: data.date.toISOString(),
-          dueDate: data.dueDate?.toISOString() ?? "",
+          dueDate: data.dueDate?.toISOString() ?? undefined,
           notes: data.notes,
         });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.RECURRING_TRANSACTIONS],
+        });
         queryClient.invalidateQueries({ queryKey: [QueryKeys.TRANSACTIONS] });
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
+        queryClient.refetchQueries();
         toast.success("Transação criada com sucesso!");
       }
 

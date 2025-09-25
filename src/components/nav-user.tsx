@@ -1,16 +1,10 @@
 import {
-  IconCreditCard,
   IconDotsVertical,
   IconLogout,
-  IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/view/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/view/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,16 +83,16 @@ export function NavUser({ user, onLogout }: NavUserProps) {
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <IconUserCircle />
-                Account
+                Conta
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              {/*    <DropdownMenuItem>
                 <IconCreditCard />
                 Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
+              </DropdownMenuItem> */}
+              {/* <DropdownMenuItem>
                 <IconNotification />
-                Notifications
-              </DropdownMenuItem>
+                Notificações
+              </DropdownMenuItem> */}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onLogout}>

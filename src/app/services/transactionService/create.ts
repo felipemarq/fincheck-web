@@ -11,7 +11,7 @@ export interface CreateTransactionParams {
   type: Transaction.Type;
   isPaid: boolean;
   date: string;
-  dueDate: string;
+  dueDate?: string;
   notes?: string;
 }
 

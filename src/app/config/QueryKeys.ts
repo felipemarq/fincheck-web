@@ -4,4 +4,5 @@ export enum QueryKeys {
   ACCOUNTS = "accounts",
   CATEGORIES = "categories",
   TRANSACTIONS = "transactions",
+  RECURRING_TRANSACTIONS = "recurringTransactions",
 }

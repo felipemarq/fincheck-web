@@ -8,6 +8,7 @@ import { useAccounts } from "@/app/hooks/useAccounts";
 interface DashboardContextValue {
   dashboard: DashboardResponse | undefined;
   isFetchingDashboard: boolean;
+  selectedEntityId: string | null;
 
   // Modals de nova conta
   isNewAccountModalOpen: boolean;
@@ -73,6 +74,7 @@ export const DashboardContextProvider = ({
         closeNewTransactionModal,
         isNewTransactionModalOpen,
         openNewTransactionModal,
+        selectedEntityId,
       }}
     >
       {children}

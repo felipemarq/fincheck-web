@@ -9,17 +9,15 @@ import {
   IconFileWord,
   IconFolder,
   IconHelp,
-  IconInnerShadowTop,
   IconListDetails,
   IconReport,
   IconSearch,
   IconSettings,
   IconUsers,
 } from "@tabler/icons-react";
-
-import { NavDocuments } from "@/components/nav-documents";
+import wordmark from "@/assets/moneystack_wordmark.png";
+import icon from "@/assets/moneystack_maskable_512.png";
 import { NavMain } from "@/components/nav-main";
-import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
@@ -42,26 +40,26 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/",
       icon: IconDashboard,
     },
     {
-      title: "Lifecycle",
+      title: "Relatórios (em desenvolvimento)",
       url: "#",
       icon: IconListDetails,
     },
     {
-      title: "Analytics",
+      title: "Cartões (em desenvolvimento)",
       url: "#",
       icon: IconChartBar,
     },
     {
-      title: "Projects",
+      title: "Investimentos (em desenvolvimento)",
       url: "#",
       icon: IconFolder,
     },
     {
-      title: "Team",
+      title: "Contatos (em desenvolvimento)",
       url: "#",
       icon: IconUsers,
     },
@@ -162,18 +160,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+              <div className="flex items-center gap-2 self-center font-medium">
+                <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+                  <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
+                </div>
+                <img src={wordmark} alt="wordmark" className="h-8 " />
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        {/*   <NavDocuments items={data.documents} />
+        <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user!} onLogout={signout} />

@@ -1,6 +1,6 @@
 export namespace Transaction {
   export type Attributes = {
-    id?: string;
+    id: string;
     entityId: string;
     userId: string;
     accountId: string;
@@ -9,13 +9,13 @@ export namespace Transaction {
     installmentPurchaseId?: string;
     contactId?: string;
     name: string;
-    date: Date;
-    dueDate?: Date;
+    date: string;
+    dueDate?: string;
     type: Transaction.Type;
     isPaid: boolean;
     notes?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
+    createdAt: string;
+    updatedAt: string;
     value: number;
   };
 
