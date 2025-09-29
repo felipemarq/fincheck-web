@@ -1,15 +1,14 @@
-import { ChartAreaInteractive } from "@/components/chart-area-interactive";
 import { SectionCards } from "@/components/section-cards";
 import { AccountModal } from "@/view/modals/AccountModal";
 import {
   DashboardContext,
   DashboardContextProvider,
 } from "./context/DashboardContext";
-import { Button } from "@/components/ui/button";
 import { TransactionModal } from "@/view/modals/TransactionModal";
 import { QuickActions } from "./components/QuickActions";
 import { TransactionsTable } from "@/view/components/TransactionTable";
 import { TopCategoriesChart } from "./components/TopCategoriesChart";
+import { RecurringTransactionModal } from "@/view/modals/RecurringTransactionModal";
 
 export default function Dashboard() {
   return (
@@ -27,16 +26,14 @@ export default function Dashboard() {
           isNewTransactionModalOpen,
           openNewTransactionModal,
           selectedEntityId,
+          closeNewRecurringTransactionModal,
+          isNewRecurringTransactionModalOpen,
+          openNewRecurringTransactionModal,
         }) => (
           <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <SectionCards
               dashboard={dashboard!}
               isFetchingDashboard={isFetchingDashboard}
-            />
-            <TransactionModal
-              isOpen={isNewTransactionModalOpen}
-              onClose={closeNewTransactionModal}
-              action="create"
             />
             <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-2">
               <div className="">
@@ -50,11 +47,24 @@ export default function Dashboard() {
                 <QuickActions
                   onNewAccountClick={openNewAccountModal}
                   onNewTransactionClick={openNewTransactionModal}
+                  onNewRecurringTransactionClick={
+                    openNewRecurringTransactionModal
+                  }
                 />
               </div>
             </div>
             <TransactionsTable entityId={selectedEntityId!} />
+            <RecurringTransactionModal
+              isOpen={isNewRecurringTransactionModalOpen}
+              onClose={closeNewRecurringTransactionModal}
+              action="create"
+            />
 
+            <TransactionModal
+              isOpen={isNewTransactionModalOpen}
+              onClose={closeNewTransactionModal}
+              action="create"
+            />
             <AccountModal
               isOpen={isNewAccountModalOpen}
               onClose={closeNewAccountModal}

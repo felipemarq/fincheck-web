@@ -1,4 +1,4 @@
-import { Button } from "@/view/components/ui/button";
+import { ModeToggle } from "@/view/components/ui/mode-toggle";
 import { Separator } from "@/view/components/ui/separator";
 import { SidebarTrigger } from "@/view/components/ui/sidebar";
 
@@ -11,18 +11,9 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-xs font-medium">Documents</h1>
+        <h1 className="text-xs font-medium">Dashboard</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-            <a
-              href="https://github.com/shadcn-ui/ui/tree/main/apps/v4/app/(examples)/dashboard"
-              rel="noopener noreferrer"
-              target="_blank"
-              className="dark:text-foreground"
-            >
-              GitHub
-            </a>
-          </Button>
+          <ModeToggle />
         </div>
       </div>
     </header>

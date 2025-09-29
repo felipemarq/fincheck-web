@@ -1,9 +1,7 @@
 import { createContext, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useDashboard } from "@/app/hooks/useDashboard";
 import type { DashboardResponse } from "@/app/services/dashboardService/get";
 import { useAuth } from "@/app/hooks/useAuth";
-import { useAccounts } from "@/app/hooks/useAccounts";
 
 interface DashboardContextValue {
   dashboard: DashboardResponse | undefined;
@@ -19,6 +17,11 @@ interface DashboardContextValue {
   isNewTransactionModalOpen: boolean;
   openNewTransactionModal: () => void;
   closeNewTransactionModal: () => void;
+
+  // Modals de nova transação recorrence
+  isNewRecurringTransactionModalOpen: boolean;
+  openNewRecurringTransactionModal: () => void;
+  closeNewRecurringTransactionModal: () => void;
 }
 
 export const DashboardContext = createContext({} as DashboardContextValue);
@@ -33,13 +36,26 @@ export const DashboardContextProvider = ({
     entityId: selectedEntityId!,
   });
 
-  const { isFetchingAccounts, accounts } = useAccounts({
+  /* const { isFetchingAccounts, accounts } = useAccounts({
     entityId: selectedEntityId!,
-  });
+  }); */
 
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
   const [isNewTransactionModalOpen, setIsNewTransactionModalOpen] =
     useState(false);
+
+  const [
+    isNewRecurringTransactionModalOpen,
+    setIsNewRecurringTransactionModalOpen,
+  ] = useState(false);
+
+  const openNewRecurringTransactionModal = () => {
+    setIsNewRecurringTransactionModalOpen(true);
+  };
+
+  const closeNewRecurringTransactionModal = () => {
+    setIsNewRecurringTransactionModalOpen(false);
+  };
 
   const openNewTransactionModal = () => {
     setIsNewTransactionModalOpen(true);
@@ -49,8 +65,6 @@ export const DashboardContextProvider = ({
     setIsNewTransactionModalOpen(false);
   };
 
-  console.log(isNewAccountModalOpen);
-
   const openNewAccountModal = () => {
     setIsNewAccountModalOpen(true);
   };
@@ -59,9 +73,7 @@ export const DashboardContextProvider = ({
     setIsNewAccountModalOpen(false);
   };
 
-  console.log("accounts", accounts);
-
-  const queryClient = useQueryClient();
+  //const queryClient = useQueryClient();
 
   return (
     <DashboardContext.Provider
@@ -75,6 +87,9 @@ export const DashboardContextProvider = ({
         isNewTransactionModalOpen,
         openNewTransactionModal,
         selectedEntityId,
+        closeNewRecurringTransactionModal,
+        isNewRecurringTransactionModalOpen,
+        openNewRecurringTransactionModal,
       }}
     >
       {children}

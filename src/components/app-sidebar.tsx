@@ -28,10 +28,23 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/view/components/ui/sidebar";
-import { ModeToggle } from "@/view/components/ui/mode-toggle";
 import { useAuth } from "@/app/hooks/useAuth";
+import { EntitySwitcher } from "./entity-switcher";
+import { Building, SquareUser } from "lucide-react";
 
 const data = {
+  teams: [
+    {
+      name: "Conta PF",
+      logo: SquareUser,
+      plan: "Enterprise",
+    },
+    {
+      name: "Conta PJ",
+      logo: Building,
+      plan: "Startup",
+    },
+  ],
   user: {
     name: "shadcn",
     email: "m@example.com",
@@ -149,7 +162,13 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, signout } = useAuth();
+  const { user, signout, handleChangeSelectedEntityId } = useAuth();
+
+  const entities =
+    user?.entities.map((e) => ({
+      ...e,
+      logo: e.type === "CHECKING" ? SquareUser : Building,
+    })) ?? [];
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -160,11 +179,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <div className="flex items-center gap-2 self-center font-medium">
-                <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-                  <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
+              <>
+                {" "}
+                <div className="flex items-center gap-2 self-center font-medium">
+                  <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+                    <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
+                  </div>
+                  <img src={wordmark} alt="wordmark" className="h-8 " />
                 </div>
-                <img src={wordmark} alt="wordmark" className="h-8 " />
+              </>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              className="data-[slot=sidebar-menu-button]:!p-1.5"
+            >
+              <div className="flex items-center gap-2 self-center font-medium border-2 mt-4">
+                Conta:
+                <EntitySwitcher
+                  entities={entities}
+                  onChange={handleChangeSelectedEntityId}
+                />
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -177,7 +213,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user!} onLogout={signout} />
-        <ModeToggle />
       </SidebarFooter>
     </Sidebar>
   );

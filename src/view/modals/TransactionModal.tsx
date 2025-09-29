@@ -65,12 +65,12 @@ export interface TransactionModalProps {
   transaction?: Transaction.Attributes;
 }
 
-// Util: converte "2025-09-20" -> "2025-09-20T00:00:00.000Z" mantendo meia-noite local para ISO
+/* // Util: converte "2025-09-20" -> "2025-09-20T00:00:00.000Z" mantendo meia-noite local para ISO
 function toIsoDate(dateStr?: string) {
   if (!dateStr) return undefined;
   const d = new Date(dateStr + "T00:00:00");
   return d.toISOString();
-}
+} */
 
 export function TransactionModal({
   isOpen,
@@ -103,8 +103,6 @@ export function TransactionModal({
     entityId: selectedEntityId!,
   });
 
-  console.log({ transaction });
-
   const {
     control,
     register,
@@ -122,6 +120,9 @@ export function TransactionModal({
   } = useMutation({
     mutationFn: transactionService.create,
   });
+
+  const watchType = watch("type");
+  console.log({ watchType });
 
   useEffect(() => {
     if (transaction) {
@@ -299,11 +300,13 @@ export function TransactionModal({
                     </SelectTrigger>
                     {!isFetchingCategories && categories && (
                       <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id!}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
+                        {categories
+                          .filter((cat) => cat.type === watchType)
+                          .map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id!}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     )}
                   </Select>

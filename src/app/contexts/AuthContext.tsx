@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useState } from "react";
 import { localStorageKeys } from "../config/localStorageKeys";
 import { QueryKeys } from "../config/QueryKeys";
 import { PageLoader } from "@/view/components/PageLoader";
@@ -15,6 +15,7 @@ interface AuthContextValue {
   signin(accessToken: string): void;
   signout(): void;
   selectedEntityId: string | null;
+  handleChangeSelectedEntityId: (entityId: string) => void;
 }
 
 export const AuthContext = createContext({} as AuthContextValue);
@@ -29,6 +30,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+
+  const handleChangeSelectedEntityId = useCallback((entityId: string) => {
+    setSelectedEntityId(entityId);
+  }, []);
 
   const queryClient = useQueryClient();
 
@@ -53,8 +58,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     staleTime: Infinity,
   });
 
-  console.log("dataee", JSON.stringify(selectedEntityId));
-  console.log("user", data);
+  console.log("Entidade Selecionada", selectedEntityId);
 
   useEffect(() => {
     if (isError) {
@@ -81,6 +85,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signout,
         user: data ?? null,
         selectedEntityId,
+        handleChangeSelectedEntityId,
       }}
     >
       {isFetching && <PageLoader isLoading={isFetching} logoPath={logo} />}

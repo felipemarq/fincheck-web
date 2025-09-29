@@ -4,7 +4,6 @@ import {
   PlusCircle,
   CreditCard,
   TrendingUp,
-  Calendar,
   Users,
   Settings,
 } from "lucide-react";
@@ -12,11 +11,13 @@ import {
 interface QuickActionsProps {
   onNewTransactionClick: () => void;
   onNewAccountClick: () => void;
+  onNewRecurringTransactionClick: () => void;
 }
 
 export function QuickActions({
   onNewAccountClick,
   onNewTransactionClick,
+  onNewRecurringTransactionClick,
 }: QuickActionsProps) {
   return (
     <Card className=" h-full">
@@ -41,10 +42,18 @@ export function QuickActions({
           <CreditCard className="h-5 w-5 text-brand" />
           <span className="text-sm font-medium">Nova Conta</span>
         </Button>
-
         <Button
           variant="outline"
           className="h-auto p-4 flex flex-col gap-2 bg-transparent"
+          onClick={onNewRecurringTransactionClick}
+        >
+          <PlusCircle className="h-5 w-5 text-brand" />
+          <span className="text-sm font-medium">Nova Transação Recorrente</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-auto p-4 flex flex-col gap-2 bg-transparent"
+          disabled
         >
           <TrendingUp className="h-5 w-5 text-info" />
           <span className="text-sm font-medium">Investir</span>
@@ -53,22 +62,16 @@ export function QuickActions({
         <Button
           variant="outline"
           className="h-auto p-4 flex flex-col gap-2 bg-transparent"
-        >
-          <Calendar className="h-5 w-5 text-warning" />
-          <span className="text-sm font-medium">Agendar</span>
-        </Button>
-
-        <Button
-          variant="outline"
-          className="h-auto p-4 flex flex-col gap-2 bg-transparent"
+          disabled
         >
           <Users className="h-5 w-5 text-neutral-600" />
-          <span className="text-sm font-medium">Contatos</span>
+          <span className="text-sm font-medium">Contatos (em breve)</span>
         </Button>
 
         <Button
           variant="outline"
           className="h-auto p-4 flex flex-col gap-2 bg-transparent"
+          disabled
         >
           <Settings className="h-5 w-5 text-neutral-600" />
           <span className="text-sm font-medium">Configurar</span>
