@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/view/components/ui/sidebar";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export function NavMain({
   items,
@@ -48,9 +48,12 @@ export function NavMain({
               <SidebarMenuButton
                 tooltip={item.title}
                 isActive={location.pathname === item.url}
+                asChild
               >
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
+                <Link to={item.url} className="flex items-center gap-2">
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
