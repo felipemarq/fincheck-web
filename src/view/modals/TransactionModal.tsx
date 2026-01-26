@@ -44,10 +44,7 @@ const schema = z.object({
   accountId: z.string().min(1, "Conta é obrigatória"),
   categoryId: z.string().min(1, "Categoria é obrigatória"),
   name: z.string().min(1, "Nome é obrigatório"),
-  value: z.union([
-    z.string().min(1, "Valor é obrigatório"),
-    z.number().min(1, "Valor é obrigatório"),
-  ]),
+  value: z.number().min(0.01, "Valor é obrigatório"),
   type: z.nativeEnum(Transaction.Type),
   isPaid: z.boolean(),
   date: z.date(), // yyyy-mm-dd vindo do <input type="date" />
@@ -145,7 +142,7 @@ export function TransactionModal({
           accountId: data.accountId,
           categoryId: data.categoryId,
           name: data.name,
-          value: Number(data.value),
+          value: data.value,
           type: data.type,
           isPaid: data.isPaid,
           date: data.date.toISOString(),
@@ -169,7 +166,7 @@ export function TransactionModal({
           accountId: data.accountId,
           categoryId: data.categoryId,
           name: data.name,
-          value: Number(data.value),
+          value: data.value,
           type: data.type,
           isPaid: data.isPaid,
           date: data.date.toISOString(),
@@ -214,7 +211,7 @@ export function TransactionModal({
                 name="value"
                 render={({ field: { onChange, value } }) => (
                   <InputCurrency
-                    value={value as any}
+                    value={typeof value === "number" ? value : 0}
                     onChange={onChange}
                     error={errors.value?.message}
                   />
