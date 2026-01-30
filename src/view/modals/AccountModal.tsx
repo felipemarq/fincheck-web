@@ -51,6 +51,7 @@ interface AccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   account?: Account.Attributes;
+  isMandatory?: boolean;
 }
 
 export function AccountModal({
@@ -58,6 +59,7 @@ export function AccountModal({
   onClose,
   account,
   action,
+  isMandatory = false,
 }: AccountModalProps) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
@@ -106,8 +108,13 @@ export function AccountModal({
     }
   });
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isMandatory) return;
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
@@ -173,14 +180,16 @@ export function AccountModal({
 
           {/* Buttons */}
           <div className="flex space-x-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1 "
-            >
-              Cancelar
-            </Button>
+            {!isMandatory && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="flex-1 "
+              >
+                Cancelar
+              </Button>
+            )}
             <Button
               isLoading={isLoadingCreateAccount}
               type="submit"

@@ -1,7 +1,8 @@
-import { createContext, useState } from "react";
+import { createContext, useEffect, useMemo, useState } from "react";
 import { useDashboard } from "@/app/hooks/useDashboard";
 import type { DashboardResponse } from "@/app/services/dashboardService/get";
 import { useAuth } from "@/app/hooks/useAuth";
+import { useAccounts } from "@/app/hooks/useAccounts";
 
 interface DashboardContextValue {
   dashboard: DashboardResponse | undefined;
@@ -12,6 +13,7 @@ interface DashboardContextValue {
   isNewAccountModalOpen: boolean;
   openNewAccountModal: () => void;
   closeNewAccountModal: () => void;
+  isAccountCreationRequired: boolean;
 
   // Modals de nova transação
   isNewTransactionModalOpen: boolean;
@@ -36,9 +38,9 @@ export const DashboardContextProvider = ({
     entityId: selectedEntityId!,
   });
 
-  /* const { isFetchingAccounts, accounts } = useAccounts({
+  const { isFetchingAccounts, accounts } = useAccounts({
     entityId: selectedEntityId!,
-  }); */
+  });
 
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
   const [isNewTransactionModalOpen, setIsNewTransactionModalOpen] =
@@ -73,6 +75,18 @@ export const DashboardContextProvider = ({
     setIsNewAccountModalOpen(false);
   };
 
+  const isAccountCreationRequired = useMemo(
+    () => !isFetchingAccounts && (accounts?.length ?? 0) === 0,
+    [accounts, isFetchingAccounts]
+  );
+
+  useEffect(() => {
+    if (!selectedEntityId) return;
+    if (isAccountCreationRequired) {
+      setIsNewAccountModalOpen(true);
+    }
+  }, [isAccountCreationRequired, selectedEntityId]);
+
   //const queryClient = useQueryClient();
 
   return (
@@ -83,6 +97,7 @@ export const DashboardContextProvider = ({
         closeNewAccountModal,
         isNewAccountModalOpen,
         openNewAccountModal,
+        isAccountCreationRequired,
         closeNewTransactionModal,
         isNewTransactionModalOpen,
         openNewTransactionModal,
