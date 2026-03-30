@@ -1,7 +1,7 @@
 import { AxiosError } from "axios";
 import { toast } from "sonner";
 
-export const treatAxiosError = (error: Error | typeof AxiosError) => {
+export const treatAxiosError = (error: unknown) => {
   console.log(error);
 
   if (error instanceof AxiosError) {
@@ -21,4 +21,11 @@ export const treatAxiosError = (error: Error | typeof AxiosError) => {
     }
     return;
   }
+
+  if (error instanceof Error) {
+    toast(error.message || "Ocorreu um erro!");
+    return;
+  }
+
+  toast("Ocorreu um erro!");
 };

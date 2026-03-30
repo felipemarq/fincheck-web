@@ -1,5 +1,4 @@
 import { createContext, useCallback, useEffect, useState } from "react";
-import { localStorageKeys } from "../config/localStorageKeys";
 import { QueryKeys } from "../config/QueryKeys";
 import { PageLoader } from "@/view/components/PageLoader";
 import type { User } from "../entities/User";
@@ -8,11 +7,12 @@ import { treatAxiosError } from "../utils/treatAxiosError";
 import { AxiosError } from "axios";
 import logo from "@/assets/moneystack_wordmark.png";
 import { usersService } from "../services/usersService";
+import { authStorage, type AuthSession } from "../services/authStorage";
 
 interface AuthContextValue {
   signedIn: boolean;
   user: User | null;
-  signin(accessToken: string): void;
+  signin(session: AuthSession): void;
   signout(): void;
   selectedEntityId: string | null;
   handleChangeSelectedEntityId: (entityId: string) => void;
@@ -21,66 +21,78 @@ interface AuthContextValue {
 export const AuthContext = createContext({} as AuthContextValue);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [signedIn, setSignedIn] = useState<boolean>(() => {
-    const storedAccessToken = localStorage.getItem(
-      localStorageKeys.ACCESS_TOKEN
-    );
-
-    return !!storedAccessToken;
-  });
-
-  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState<boolean>(() =>
+    authStorage.hasAccessToken()
+  );
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(() =>
+    authStorage.getSelectedEntityId()
+  );
 
   const handleChangeSelectedEntityId = useCallback((entityId: string) => {
+    authStorage.setSelectedEntityId(entityId);
     setSelectedEntityId(entityId);
   }, []);
 
   const queryClient = useQueryClient();
 
-  const signin = useCallback((accessToken: string) => {
-    localStorage.setItem(localStorageKeys.ACCESS_TOKEN, accessToken);
-
+  const signin = useCallback((session: AuthSession) => {
+    authStorage.setSession(session);
     setSignedIn(true);
   }, []);
 
   const signout = useCallback(() => {
-    console.log("deu erro");
-    localStorage.removeItem(localStorageKeys.ACCESS_TOKEN);
+    authStorage.clearSession();
+    authStorage.clearSelectedEntityId();
     setSignedIn(false);
-    queryClient.invalidateQueries({ queryKey: [QueryKeys.ME] });
-    window.location.reload();
-  }, []);
+    setSelectedEntityId(null);
+    queryClient.clear();
+  }, [queryClient]);
 
-  const { data, isError, error, isFetching, isSuccess } = useQuery({
+  const { data, isError, error, isFetching } = useQuery({
     queryKey: [QueryKeys.ME],
     queryFn: () => usersService.me(),
     enabled: signedIn,
     staleTime: Infinity,
   });
 
-  console.log("Entidade Selecionada", selectedEntityId);
-
   useEffect(() => {
     if (isError) {
       treatAxiosError((error as Error) || AxiosError);
       signout();
     }
-
-    if (isSuccess) {
-      setSelectedEntityId(data?.entities[0].id);
-    }
-  }, [isError, signout]);
+  }, [error, isError, signout]);
 
   useEffect(() => {
-    if (data) {
-      setSelectedEntityId(data?.entities[0].id);
+    if (!data?.entities.length) {
+      authStorage.clearSelectedEntityId();
+      setSelectedEntityId(null);
+      return;
     }
+
+    setSelectedEntityId((currentEntityId) => {
+      if (
+        currentEntityId &&
+        data.entities.some((entity) => entity.id === currentEntityId)
+      ) {
+        return currentEntityId;
+      }
+
+      const storedEntityId = authStorage.getSelectedEntityId();
+      const preferredEntityId = data.entities.find(
+        (entity) => entity.id === storedEntityId
+      )?.id;
+
+      const nextEntityId = preferredEntityId ?? data.entities[0].id;
+      authStorage.setSelectedEntityId(nextEntityId);
+
+      return nextEntityId;
+    });
   }, [data]);
 
   return (
     <AuthContext.Provider
       value={{
-        signedIn: isSuccess,
+        signedIn,
         signin,
         signout,
         user: data ?? null,

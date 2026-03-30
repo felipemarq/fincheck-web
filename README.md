@@ -1,69 +1,58 @@
-# React + TypeScript + Vite
+# Fincheck Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sessão do usuário, mantém o contexto da entidade ativa e entrega a experiência de dashboard e gestão financeira no navegador.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- TypeScript
+- Vite
+- TanStack Query
+- React Hook Form
+- Radix UI
+- Tailwind CSS
 
-## Expanding the ESLint configuration
+## O que existe hoje
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Login e cadastro
+- Sessão autenticada com refresh token automático
+- Seleção de entidade ativa
+- Dashboard
+- Cartões de crédito
+- CRUD de contas
+- CRUD de transações
+- CRUD de transações recorrentes
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## O que ainda está em construção
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+- Relatórios
+- Contatos
+- Investimentos
+- Recuperação de senha no fluxo da interface
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Estrutura principal
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- `src/app`: entidades, hooks, config e serviços HTTP
+- `src/view`: páginas, modais, layouts e componentes da aplicação
+- `src/components`: componentes compartilhados e shell visual
+- `docs/`: documentação do estado atual do frontend
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Ambiente
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Use o `.env.example` como base:
+
+- `VITE_API_URL`
+
+Se a variável não for definida, o app usa `https://api.moneystack.com.br` como fallback.
+
+## Scripts
+
+- `pnpm dev`
+- `pnpm build`
+- `pnpm typecheck`
+- `pnpm lint`
+
+## Documentação
+
+- [Arquitetura](./docs/architecture.md)
+- [Estado atual](./docs/current-state.md)

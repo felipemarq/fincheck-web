@@ -9,7 +9,6 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { mutationKeys } from "@/app/config/MutationKeys";
 
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
-import type { AxiosError } from "axios";
 import type { SignUpParams } from "@/app/services/authService/signUp";
 const schema = z.object({
   name: z
@@ -47,10 +46,9 @@ export const useRegister = () => {
 
   const handleSubmit = hookFormHandleSubmit(async (data) => {
     try {
-      const { accessToken } = await mutateAsync(data); //Retorno da mutation Function
-      signin(accessToken);
-    } catch (error: any | typeof AxiosError) {
-      console.log(error);
+      const session = await mutateAsync(data);
+      signin(session);
+    } catch (error) {
       treatAxiosError(error);
     }
   });

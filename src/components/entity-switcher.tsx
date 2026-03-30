@@ -28,8 +28,15 @@ interface EntitySwitcherProps {
   activeEntityId?: string;
 }
 
-export function EntitySwitcher({ entities, onChange }: EntitySwitcherProps) {
-  const [activeEntity, setActiveEntity] = React.useState(entities[0]);
+export function EntitySwitcher({
+  entities,
+  onChange,
+  activeEntityId,
+}: EntitySwitcherProps) {
+  const activeEntity = React.useMemo(
+    () => entities.find((entity) => entity.id === activeEntityId) ?? entities[0],
+    [activeEntityId, entities]
+  );
 
   if (!activeEntity) {
     return null;
@@ -61,7 +68,6 @@ export function EntitySwitcher({ entities, onChange }: EntitySwitcherProps) {
               <DropdownMenuItem
                 key={entity.name}
                 onClick={() => {
-                  setActiveEntity(entity);
                   onChange?.(entity.id);
                 }}
                 className="gap-2 p-2"
@@ -79,7 +85,7 @@ export function EntitySwitcher({ entities, onChange }: EntitySwitcherProps) {
                 <Plus className="size-4" />
               </div>
               <div className="text-muted-foreground font-medium">
-                Adicionar conta PJ
+                Nova entidade em breve
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>

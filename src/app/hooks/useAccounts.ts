@@ -8,7 +8,7 @@ export const useAccounts = (
   enabled: boolean = true
 ) => {
   const { data, isFetching, refetch, ...rest } = useQuery({
-    queryKey: [QueryKeys.ACCOUNTS],
+    queryKey: [QueryKeys.ACCOUNTS, params.entityId],
     queryFn: () => accountService.getAll(params),
     enabled: enabled && Boolean(params?.entityId),
     staleTime: 24 * 60 * 60 * 1000, // 24h

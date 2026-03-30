@@ -1,19 +1,10 @@
 import * as React from "react";
 import {
-  IconCamera,
   IconChartBar,
   IconDashboard,
-  IconDatabase,
-  IconFileAi,
-  IconFileDescription,
-  IconFileWord,
   IconFolder,
-  IconHelp,
   IconListDetails,
   IconRepeat,
-  IconReport,
-  IconSearch,
-  IconSettings,
   IconUsers,
 } from "@tabler/icons-react";
 import wordmark from "@/assets/moneystack_wordmark.png";
@@ -33,147 +24,47 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { EntitySwitcher } from "./entity-switcher";
 import { Building, SquareUser } from "lucide-react";
 
-const data = {
-  teams: [
-    {
-      name: "Conta PF",
-      logo: SquareUser,
-      plan: "Enterprise",
-    },
-    {
-      name: "Conta PJ",
-      logo: Building,
-      plan: "Startup",
-    },
-  ],
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+const navMain = [
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: IconDashboard,
   },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/",
-      icon: IconDashboard,
-    },
-    {
-      title: "Recorrências",
-      url: "/recurring-transactions",
-      icon: IconRepeat,
-    },
-    {
-      title: "Relatórios (em desenvolvimento)",
-      url: "#",
-      icon: IconListDetails,
-    },
-    {
-      title: "Cartões (em desenvolvimento)",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Investimentos (em desenvolvimento)",
-      url: "#",
-      icon: IconFolder,
-    },
-    {
-      title: "Contatos (em desenvolvimento)",
-      url: "#",
-      icon: IconUsers,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
-    },
-  ],
-};
+  {
+    title: "Recorrências",
+    url: "/recurring-transactions",
+    icon: IconRepeat,
+  },
+  {
+    title: "Cartões",
+    url: "/credit-cards",
+    icon: IconChartBar,
+  },
+  {
+    title: "Relatórios (em desenvolvimento)",
+    url: "#",
+    icon: IconListDetails,
+  },
+  {
+    title: "Investimentos (em desenvolvimento)",
+    url: "#",
+    icon: IconFolder,
+  },
+  {
+    title: "Contatos (em desenvolvimento)",
+    url: "#",
+    icon: IconUsers,
+  },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, signout, handleChangeSelectedEntityId } = useAuth();
+  const { user, signout, handleChangeSelectedEntityId, selectedEntityId } =
+    useAuth();
 
   const entities =
-    user?.entities.map((e) => ({
-      ...e,
-      logo: e.type === "CHECKING" ? SquareUser : Building,
+    user?.entities.map((entity) => ({
+      ...entity,
+      logo: entity.type === "PF" ? SquareUser : Building,
     })) ?? [];
 
   return (
@@ -185,26 +76,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <>
-                {" "}
-                <div className="flex items-center gap-2 self-center font-medium">
-                  <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-                    <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
-                  </div>
-                  <img src={wordmark} alt="wordmark" className="h-8 " />
+              <div className="flex items-center gap-2 self-center font-medium">
+                <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+                  <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
                 </div>
-              </>
+                <img src={wordmark} alt="wordmark" className="h-8" />
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
+
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <div className="flex items-center gap-2 self-center font-medium border-2 mt-4">
-                Conta:
+              <div className="mt-4 flex items-center gap-2 self-center border-2 font-medium">
+                Entidade:
                 <EntitySwitcher
                   entities={entities}
+                  activeEntityId={selectedEntityId ?? undefined}
                   onChange={handleChangeSelectedEntityId}
                 />
               </div>
@@ -212,11 +102,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        {/*   <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
+        <NavMain items={navMain} />
       </SidebarContent>
+
       <SidebarFooter>
         <NavUser user={user!} onLogout={signout} />
       </SidebarFooter>

@@ -10,6 +10,6 @@ export const remove = async ({
   entityId,
 }: RemoveTransactionParams) => {
   await httpClient.delete<RemoveTransactionParams>(
-    `/transactions/${transactionId}/${entityId}`
+    `/entities/${entityId}/transactions/${transactionId}`
   );
 };

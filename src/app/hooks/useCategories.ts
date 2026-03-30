@@ -8,7 +8,7 @@ export const useCategories = (
   enabled: boolean = true
 ) => {
   const { data, isFetching, refetch, ...rest } = useQuery({
-    queryKey: [QueryKeys.CATEGORIES],
+    queryKey: [QueryKeys.CATEGORIES, params.entityId],
     queryFn: () => categoriesService.getAll(params),
     enabled: enabled && Boolean(params?.entityId),
     staleTime: 24 * 60 * 60 * 1000, // 24h

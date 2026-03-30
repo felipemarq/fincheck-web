@@ -5,6 +5,7 @@ import { LoginLayout } from "@/view/Layouts/LoginLayout";
 import AppLayout from "@/view/Layouts/AppLayout";
 import { PageLoader } from "@/view/components/PageLoader";
 import Dashboard from "@/view/pages/Dashboard";
+import CreditCards from "@/view/pages/CreditCards";
 import RecurringTransactions from "@/view/pages/RecurringTransactions";
 const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
@@ -24,6 +25,7 @@ export const Router = () => {
           <Route element={<AuthGuard isPrivate={true} />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/credit-cards" element={<CreditCards />} />
               <Route
                 path="/recurring-transactions"
                 element={<RecurringTransactions />}
