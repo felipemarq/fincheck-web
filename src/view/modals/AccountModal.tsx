@@ -1,9 +1,3 @@
-"use client";
-
-import type React from "react";
-
-import { useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,7 +130,7 @@ export function AccountModal({
                 render={({ field: { onChange, value } }) => (
                   <InputCurrency
                     onChange={onChange}
-                    value={value}
+                    value={value as number}
                     error={errors.initialBalance?.message}
                   />
                 )}

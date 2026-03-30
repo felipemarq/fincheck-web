@@ -1,4 +1,3 @@
-import type { Account } from "@/app/entities/Account";
 import { httpClient } from "../httpClient";
 import type { Transaction } from "@/app/entities/Transaction";
 
@@ -22,7 +21,7 @@ interface CreateTransactionResponse {
 export const create = async (params: CreateTransactionParams) => {
   const { data } = await httpClient.post<CreateTransactionResponse>(
     "/transactions",
-    params
+    params,
   );
   return data;
 };

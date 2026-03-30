@@ -64,7 +64,7 @@ const schema = z
 
     recurrence: z.nativeEnum(
       RecurringTransaction.Recurrence,
-      "Recorrência é obrigatória"
+      "Recorrência é obrigatória",
     ),
 
     notes: z.string().max(500, "Observações até 500 caracteres").optional(),
@@ -98,27 +98,34 @@ export function RecurringTransactionModal({
     entityId: selectedEntityId!,
   });
 
-  const defaultValues = useMemo(
+  const defaultValues = useMemo<RecurringFormData>(
     () => ({
       accountId: recurringTransaction?.accountId ?? "",
       categoryId: recurringTransaction?.categoryId ?? "",
       name: recurringTransaction?.name ?? "",
-      value: recurringTransaction?.value ?? 0,
-      type: recurringTransaction?.type ?? Transaction.Type.EXPENSE,
+      value: recurringTransaction?.value ?? "", // melhor que 0 (0 é inválido no zod positive)
+      type:
+        (recurringTransaction?.type as Transaction.Type) ??
+        Transaction.Type.EXPENSE,
+
       startDate: recurringTransaction?.startDate
         ? new Date(recurringTransaction.startDate)
         : new Date(),
+
       endDate: recurringTransaction?.endDate
         ? new Date(recurringTransaction.endDate)
         : undefined,
+
       recurrence:
-        recurringTransaction?.recurrence ??
-        ("MONTHLY" as RecurringTransaction.Recurrence),
-      notes: recurringTransaction?.notes ?? "",
+        (recurringTransaction?.recurrence as RecurringTransaction.Recurrence) ??
+        RecurringTransaction.Recurrence.MONTHLY,
+
+      notes: recurringTransaction?.notes ?? undefined,
+
       creditCardId: recurringTransaction?.creditCardId ?? undefined,
       contactId: recurringTransaction?.contactId ?? undefined,
     }),
-    [recurringTransaction]
+    [recurringTransaction],
   );
 
   const {
@@ -139,7 +146,7 @@ export function RecurringTransactionModal({
   // filtra categorias pelo tipo selecionado (coerente com teu domínio)
   const filteredCategories = useMemo(
     () => (categories ?? []).filter((c) => c.type === type),
-    [categories, type]
+    [categories, type],
   );
 
   const { isPending: isLoadingCreate, mutateAsync: createRecurring } =
@@ -272,8 +279,12 @@ export function RecurringTransactionModal({
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INCOME">Receita</SelectItem>
-                      <SelectItem value="EXPENSE">Despesa</SelectItem>
+                      <SelectItem value={Transaction.Type.INCOME}>
+                        Receita
+                      </SelectItem>
+                      <SelectItem value={Transaction.Type.EXPENSE}>
+                        Despesa
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -357,10 +368,24 @@ export function RecurringTransactionModal({
                       <SelectValue placeholder="Recorrência" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DAILY">Diária</SelectItem>
-                      <SelectItem value="WEEKLY">Semanal</SelectItem>
-                      <SelectItem value="MONTHLY">Mensal</SelectItem>
-                      <SelectItem value="YEARLY">Anual</SelectItem>
+                      <SelectItem value={RecurringTransaction.Recurrence.DAILY}>
+                        Diária
+                      </SelectItem>
+                      <SelectItem
+                        value={RecurringTransaction.Recurrence.WEEKLY}
+                      >
+                        Semanal
+                      </SelectItem>
+                      <SelectItem
+                        value={RecurringTransaction.Recurrence.MONTHLY}
+                      >
+                        Mensal
+                      </SelectItem>
+                      <SelectItem
+                        value={RecurringTransaction.Recurrence.YEARLY}
+                      >
+                        Anual
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -497,7 +522,9 @@ export function RecurringTransactionModal({
             </Button>
             <Button
               type="submit"
-              isLoading={action === "update" ? isLoadingUpdate : isLoadingCreate}
+              isLoading={
+                action === "update" ? isLoadingUpdate : isLoadingCreate
+              }
               className="flex-1"
             >
               {action === "update" ? "Atualizar" : "Salvar"}

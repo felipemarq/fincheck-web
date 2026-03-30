@@ -49,9 +49,7 @@ import { useRecurringTransactions } from "@/app/hooks/useRecurringTransactions";
 import { useAccounts } from "@/app/hooks/useAccounts";
 import { useCategories } from "@/app/hooks/useCategories";
 import { QueryKeys } from "@/app/config/QueryKeys";
-import {
-  recurringTransactionsService,
-} from "@/app/services/recurringTransactions";
+import { recurringTransactionsService } from "@/app/services/recurringTransactions";
 import type {
   ListRecurringTransactionsParams,
   RecurringTransactionDTO,
@@ -59,6 +57,7 @@ import type {
 import { RecurringTransactionModal } from "@/view/modals/RecurringTransactionModal";
 import { TRANSACTION_TYPE_LABELS_PT } from "@/view/i18n/pt/transaction";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
+import type { AxiosError } from "axios";
 
 const RECURRENCE_LABELS: Record<RecurringTransactionDTO["recurrence"], string> =
   {
@@ -147,7 +146,7 @@ export function RecurringTransactionsTable({
       pageSize: local.pageSize,
       search: local.search?.trim() || undefined,
     }),
-    [entityId, local, pageIndex]
+    [entityId, local, pageIndex],
   );
 
   const { recurringTransactions, isFetchingRecurringTransactions } =
@@ -179,7 +178,7 @@ export function RecurringTransactionsTable({
         queryKey: [QueryKeys.RECURRING_TRANSACTIONS],
       });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
-    } catch (error) {
+    } catch (error: any | typeof AxiosError) {
       treatAxiosError(error);
     }
   };
@@ -233,9 +232,7 @@ export function RecurringTransactionsTable({
               setLocal((s) => ({
                 ...s,
                 types:
-                  v === "-"
-                    ? []
-                    : ([v] as RecurringTransactionDTO["type"][]),
+                  v === "-" ? [] : ([v] as RecurringTransactionDTO["type"][]),
               }));
               setPageIndex(0);
             }}
@@ -406,9 +403,7 @@ export function RecurringTransactionsTable({
                       ? -Math.abs(item.value)
                       : Math.abs(item.value);
                   const valueClass =
-                    item.type === "EXPENSE"
-                      ? "text-red-600"
-                      : "text-green-600";
+                    item.type === "EXPENSE" ? "text-red-600" : "text-green-600";
                   const typeClass =
                     item.type === "INCOME"
                       ? "border-green-500 text-green-600"
@@ -416,11 +411,12 @@ export function RecurringTransactionsTable({
 
                   return (
                     <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.name}
-                      </TableCell>
+                      <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <Badge variant="outline" className={`px-1.5 ${typeClass}`}>
+                        <Badge
+                          variant="outline"
+                          className={`px-1.5 ${typeClass}`}
+                        >
                           {TRANSACTION_TYPE_LABELS_PT[item.type]}
                         </Badge>
                       </TableCell>
@@ -439,7 +435,9 @@ export function RecurringTransactionsTable({
                       <TableCell className="hidden lg:table-cell">
                         {categoryMap.get(item.categoryId) ?? "—"}
                       </TableCell>
-                      <TableCell className={`text-right font-medium ${valueClass}`}>
+                      <TableCell
+                        className={`text-right font-medium ${valueClass}`}
+                      >
                         {formatMoney(value)}
                       </TableCell>
                       <TableCell>
@@ -455,7 +453,9 @@ export function RecurringTransactionsTable({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => openEditModal(item)}>
+                            <DropdownMenuItem
+                              onClick={() => openEditModal(item)}
+                            >
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />

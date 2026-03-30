@@ -1,6 +1,3 @@
-"use client";
-
-import * as React from "react";
 import { Pie, PieChart } from "recharts";
 import {
   Card,
@@ -76,7 +73,7 @@ export function TopCategoriesChart({
       };
       return acc;
     },
-    { amount: { label: "Total" } } as ChartConfig
+    { amount: { label: "Total" } } as ChartConfig,
   );
 
   return (
