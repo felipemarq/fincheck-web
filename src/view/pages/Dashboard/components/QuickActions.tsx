@@ -40,7 +40,7 @@ export function QuickActions({
           onClick={onNewAccountClick}
         >
           <CreditCard className="h-5 w-5 text-brand" />
-          <span className="text-sm font-medium">Nova Conta</span>
+          <span className="text-sm font-medium">Nova conta financeira</span>
         </Button>
         <Button
           variant="outline"

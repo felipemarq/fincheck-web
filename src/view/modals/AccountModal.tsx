@@ -1,4 +1,23 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Controller, useForm } from "react-hook-form";
+import { useEffect, useMemo } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
+
+import { QueryKeys } from "@/app/config/QueryKeys";
+import { Account } from "@/app/entities/Account";
+import { useAuth } from "@/app/hooks/useAuth";
+import { accountService } from "@/app/services/accountService";
+import { treatAxiosError } from "@/app/utils/treatAxiosError";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -8,34 +27,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Account } from "@/app/entities/Account";
-import z from "zod";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { treatAxiosError } from "@/app/utils/treatAxiosError";
-import type { AxiosError } from "axios";
-import { toast } from "sonner";
-import { ACCOUNT_TYPE_LABELS_PT } from "../i18n/pt/account";
-import { accountService } from "@/app/services/accountService";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/app/hooks/useAuth";
-import { QueryKeys } from "@/app/config/QueryKeys";
 import { InputCurrency } from "../components/InputCurrency";
+import { ACCOUNT_TYPE_LABELS_PT } from "../i18n/pt/account";
+
+const colorRegex = /^#[0-9A-Fa-f]{6}$/;
+const DEFAULT_COLOR = "#868E96";
 
 const schema = z.object({
-  initialBalance: z.union([
-    z.string().min(1, "Saldo é obrigatório"),
-    z.number(),
-  ]),
-  name: z.string().min(1, "Nome da conta é obrigatório"),
+  initialBalance: z.number(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Nome da conta e obrigatorio.")
+    .max(120, "Nome deve ter no maximo 120 caracteres."),
   type: z.enum(["CHECKING", "INVESTMENT", "CASH"]),
-  color: z.string().optional(),
+  color: z.string().regex(colorRegex, "Cor deve estar no formato hexadecimal."),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -44,7 +50,7 @@ interface AccountModalProps {
   action: "create" | "update";
   isOpen: boolean;
   onClose: () => void;
-  account?: Account.Attributes;
+  account?: Account.Attributes | null;
   isMandatory?: boolean;
 }
 
@@ -57,53 +63,89 @@ export function AccountModal({
 }: AccountModalProps) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
+
+  const defaultValues = useMemo<FormData>(
+    () => ({
+      color: account?.color ?? DEFAULT_COLOR,
+      name: account?.name ?? "",
+      type: account?.type ?? Account.Type.CHECKING,
+      initialBalance: account?.initialBalance ?? 0,
+    }),
+    [account?.color, account?.initialBalance, account?.name, account?.type]
+  );
+
   const {
-    handleSubmit: hookFormHandleSubmit,
+    handleSubmit,
     register,
     control,
+    reset,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      color: account?.color,
-      name: account?.name,
-      type: account?.type,
-      initialBalance: account?.initialBalance,
-    },
+    defaultValues,
   });
 
-  const {
-    isPending: isLoadingCreateAccount,
-    mutateAsync: mutateAsyncCreateAccount,
-  } = useMutation({ mutationFn: accountService.create });
-  console.log(selectedEntityId);
-  const handleSubmit = hookFormHandleSubmit(async (data) => {
-    console.log(selectedEntityId);
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    reset(defaultValues);
+  }, [defaultValues, isOpen, reset]);
+
+  const { isPending: isCreating, mutateAsync: createAccount } = useMutation({
+    mutationFn: accountService.create,
+  });
+
+  const { isPending: isUpdating, mutateAsync: updateAccount } = useMutation({
+    mutationFn: accountService.update,
+  });
+
+  const onSubmit = handleSubmit(async (data) => {
+    if (!selectedEntityId) {
+      return;
+    }
+
+    const payload = {
+      entityId: selectedEntityId,
+      initialBalance: Number(data.initialBalance),
+      name: data.name,
+      type: data.type as Account.Type,
+      color: data.color,
+    };
 
     try {
-      if (action === "create") {
-        await mutateAsyncCreateAccount({
-          name: data.name,
-          entityId: selectedEntityId!,
-          initialBalance: Number(data.initialBalance),
-          type: data.type as Account.Type,
+      if (action === "update" && account?.id) {
+        await updateAccount({
+          accountId: account.id,
+          ...payload,
         });
-        queryClient.invalidateQueries({ queryKey: [QueryKeys.ACCOUNTS] });
-        toast("Conta criada com sucesso!");
+        toast.success("Conta atualizada com sucesso!");
+      } else {
+        await createAccount(payload);
+        toast.success("Conta criada com sucesso!");
       }
 
-      if (action === "update") {
-        //mutateAsyncUpdate
-        toast("Conta editada com sucesso!");
-      }
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.ACCOUNTS, selectedEntityId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.DASHBOARD],
+        }),
+      ]);
+
       onClose();
     } catch (error) {
-      treatAxiosError(error as AxiosError);
+      treatAxiosError(error);
     }
   });
 
   const handleOpenChange = (open: boolean) => {
-    if (!open && isMandatory) return;
+    if (!open && isMandatory) {
+      return;
+    }
+
     onClose();
   };
 
@@ -112,16 +154,20 @@ export function AccountModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {action === "update" ? "Editar Conta" : "Nova Conta"}
+            {action === "update" ? "Editar conta" : "Nova conta"}
           </DialogTitle>
+          <DialogDescription>
+            {action === "update"
+              ? "Atualize os dados da conta da entidade ativa."
+              : "Cadastre uma conta para representar banco, caixa fisico ou investimento da entidade ativa."}
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Saldo Inicial */}
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Saldo Inicial</Label>
+            <Label>Saldo inicial</Label>
             <div className="flex items-center gap-2">
-              <span className="text-gray-600 tracking-[-0.5px] text-lg">
+              <span className="text-gray-600 text-lg tracking-[-0.5px]">
                 R$
               </span>
               <Controller
@@ -130,30 +176,28 @@ export function AccountModal({
                 render={({ field: { onChange, value } }) => (
                   <InputCurrency
                     onChange={onChange}
-                    value={value as number}
+                    value={typeof value === "number" ? value : 0}
                     error={errors.initialBalance?.message}
                   />
                 )}
               />
             </div>
           </div>
-          {/* Nome */}
+
           <div className="space-y-2">
-            <Label>Nome da Conta</Label>
+            <Label>Nome da conta</Label>
             <Input
               type="text"
-              placeholder="Nome da Conta"
+              placeholder="Ex: Nubank PJ ou Caixa da empresa"
               error={errors.name?.message}
               {...register("name")}
             />
           </div>
 
-          {/* Tipo */}
           <div className="space-y-2">
-            <Label>Tipo de Conta</Label>
+            <Label>Tipo de conta</Label>
             <Controller
               control={control}
-              defaultValue="CHECKING"
               name="type"
               render={({ field: { onChange, value } }) => (
                 <Select value={value} onValueChange={onChange}>
@@ -161,35 +205,62 @@ export function AccountModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.keys(ACCOUNT_TYPE_LABELS_PT).map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {ACCOUNT_TYPE_LABELS_PT[key as Account.Type]}
-                      </SelectItem>
-                    ))}
+                    {Object.entries(ACCOUNT_TYPE_LABELS_PT).map(
+                      ([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      )
+                    )}
                   </SelectContent>
                 </Select>
               )}
             />
           </div>
 
-          {/* Buttons */}
-          <div className="flex space-x-2 pt-4">
+          <div className="space-y-2">
+            <Label>Cor de identificacao</Label>
+            <Controller
+              control={control}
+              name="color"
+              render={({ field: { onChange, value } }) => (
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="color"
+                    className="h-10 w-16 p-1"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                  <Input
+                    type="text"
+                    className="flex-1 uppercase"
+                    placeholder="#868E96"
+                    error={errors.color?.message}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                </div>
+              )}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
             {!isMandatory && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="flex-1 "
+                className="flex-1"
               >
                 Cancelar
               </Button>
             )}
             <Button
-              isLoading={isLoadingCreateAccount}
+              isLoading={isCreating || isUpdating}
               type="submit"
-              className="flex-1 "
+              className="flex-1"
             >
-              Salvar
+              {action === "update" ? "Salvar" : "Criar"}
             </Button>
           </div>
         </form>

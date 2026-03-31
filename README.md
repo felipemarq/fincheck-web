@@ -1,6 +1,6 @@
 # Fincheck Web
 
-Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sessão do usuário, mantém o contexto da entidade ativa e entrega a experiência de dashboard e gestão financeira no navegador.
+Frontend web do Fincheck. A aplicacao consome a Fincheck API, gerencia a sessao do usuario, mantem o contexto da entidade ativa e entrega a experiencia de dashboard e gestao financeira no navegador.
 
 ## Stack
 
@@ -15,32 +15,33 @@ Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sess�
 ## O que existe hoje
 
 - Login e cadastro
-- Recuperação de senha
-- Sessão autenticada com refresh token automático
-- Seleção de entidade ativa
-- Gestão de entidades PF/PJ com criação, edição e troca pela sidebar
+- Recuperacao de senha
+- Sessao autenticada com refresh token automatico
+- Selecao de entidade ativa
+- Gestao de entidades PF/PJ com criacao, edicao e troca pela sidebar
+- Gestao dedicada de contas bancarias, caixa e investimento
 - Dashboard
 - Contas a pagar
 - Contas a receber
 - Filtros rapidos de vencimento e agrupamento por contato em pagar/receber
-- Cartões de crédito
+- Cartoes de credito
 - Contatos
-- Configuração de impostos mensais
+- Configuracao de impostos mensais
 - CRUD de contas
-- CRUD de transações
-- CRUD de transações recorrentes
+- CRUD de transacoes
+- CRUD de transacoes recorrentes
 
-## O que ainda está em construção
+## O que ainda esta em construcao
 
-- Relatórios
+- Relatorios
 - Investimentos
 
 ## Estrutura principal
 
-- `src/app`: entidades, hooks, config e serviços HTTP
-- `src/view`: páginas, modais, layouts e componentes da aplicação
+- `src/app`: entidades, hooks, config e servicos HTTP
+- `src/view`: paginas, modais, layouts e componentes da aplicacao
 - `src/components`: componentes compartilhados e shell visual
-- `docs/`: documentação do estado atual do frontend
+- `docs/`: documentacao do estado atual do frontend
 
 ## Ambiente
 
@@ -48,7 +49,7 @@ Use o `.env.example` como base:
 
 - `VITE_API_URL`
 
-Se a variável não for definida, o app usa `https://api.moneystack.com.br` como fallback.
+Se a variavel nao for definida, o app usa `https://api.moneystack.com.br` como fallback.
 
 ## Scripts
 
@@ -57,7 +58,7 @@ Se a variável não for definida, o app usa `https://api.moneystack.com.br` como
 - `pnpm typecheck`
 - `pnpm lint`
 
-## Documentação
+## Documentacao
 
 - [Arquitetura](./docs/architecture.md)
 - [Estado atual](./docs/current-state.md)

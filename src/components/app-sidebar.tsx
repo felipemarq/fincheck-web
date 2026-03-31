@@ -10,6 +10,7 @@ import {
   IconTrendingDown,
   IconTrendingUp,
   IconUsers,
+  IconWallet,
 } from "@tabler/icons-react";
 import { Building, SquareUser } from "lucide-react";
 
@@ -40,6 +41,11 @@ const navMain = [
     title: "Entidades",
     url: "/entities",
     icon: IconBuildingBank,
+  },
+  {
+    title: "Contas",
+    url: "/accounts",
+    icon: IconWallet,
   },
   {
     title: "Contas a pagar",

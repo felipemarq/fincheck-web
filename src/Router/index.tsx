@@ -5,6 +5,7 @@ import { AuthGuard } from "./AuthGuard";
 import AppLayout from "@/view/Layouts/AppLayout";
 import { LoginLayout } from "@/view/Layouts/LoginLayout";
 import { PageLoader } from "@/view/components/PageLoader";
+import Accounts from "@/view/pages/Accounts";
 import Contacts from "@/view/pages/Contacts";
 import CreditCards from "@/view/pages/CreditCards";
 import Dashboard from "@/view/pages/Dashboard";
@@ -37,6 +38,7 @@ export const Router = () => {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/entities" element={<Entities />} />
+              <Route path="/accounts" element={<Accounts />} />
               <Route path="/payables" element={<Payables />} />
               <Route path="/receivables" element={<Receivables />} />
               <Route path="/credit-cards" element={<CreditCards />} />

@@ -6,6 +6,7 @@ export interface CreateAccountParams {
   initialBalance: number;
   name: string;
   type: Account.Type;
+  color?: string;
 }
 
 interface CreateAccountResponse {
