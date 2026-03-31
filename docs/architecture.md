@@ -12,9 +12,10 @@ O frontend esta organizado em tres blocos principais:
 
 1. Login, cadastro e recuperacao de senha chamam os endpoints de auth da API.
 2. `AuthContext` persiste `accessToken`, `refreshToken` e entidade selecionada.
-3. O `httpClient` envia o token no header `Authorization`.
-4. Em `401`, o cliente tenta renovar a sessao via `/auth/refresh-token`.
-5. Se a renovacao falhar, a sessao local e limpa e o usuario volta para `/login`.
+3. O contexto tambem persiste o estado de onboarding da entidade recem-criada.
+4. O `httpClient` envia o token no header `Authorization`.
+5. Em `401`, o cliente tenta renovar a sessao via `/auth/refresh-token`.
+6. Se a renovacao falhar, a sessao local e limpa e o usuario volta para `/login`.
 
 ## Roteamento
 
@@ -42,6 +43,7 @@ As rotas publicas ficam em:
 - TanStack Query centraliza fetch e cache.
 - As queries de contas e categorias sao escopadas por `entityId`.
 - A entidade ativa fica no contexto e tambem no `localStorage`.
+- O onboarding da entidade tambem fica em `localStorage`, permitindo retomar o passo de primeira conta ou primeira transacao.
 - A gestao de contas invalida tambem o dashboard para manter os saldos consolidados sincronizados depois de criar, editar ou excluir contas.
 
 ## Integracao com a API

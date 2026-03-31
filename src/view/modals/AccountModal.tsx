@@ -52,6 +52,7 @@ interface AccountModalProps {
   onClose: () => void;
   account?: Account.Attributes | null;
   isMandatory?: boolean;
+  onSuccess?: (account: Account.Attributes) => void | Promise<void>;
 }
 
 export function AccountModal({
@@ -60,6 +61,7 @@ export function AccountModal({
   account,
   action,
   isMandatory = false,
+  onSuccess,
 }: AccountModalProps) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
@@ -115,14 +117,17 @@ export function AccountModal({
     };
 
     try {
+      let savedAccount: Account.Attributes | undefined;
+
       if (action === "update" && account?.id) {
-        await updateAccount({
+        savedAccount = await updateAccount({
           accountId: account.id,
           ...payload,
         });
         toast.success("Conta atualizada com sucesso!");
       } else {
-        await createAccount(payload);
+        const response = await createAccount(payload);
+        savedAccount = response.account;
         toast.success("Conta criada com sucesso!");
       }
 
@@ -134,6 +139,10 @@ export function AccountModal({
           queryKey: [QueryKeys.DASHBOARD],
         }),
       ]);
+
+      if (savedAccount) {
+        await onSuccess?.(savedAccount);
+      }
 
       onClose();
     } catch (error) {

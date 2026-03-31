@@ -1,21 +1,34 @@
-import { createContext, useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { QueryKeys } from "../config/QueryKeys";
 import { PageLoader } from "@/view/components/PageLoader";
 import type { User } from "../entities/User";
+import type { Entity } from "../entities/Entity";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { treatAxiosError } from "../utils/treatAxiosError";
 import { AxiosError } from "axios";
 import logo from "@/assets/moneystack_wordmark.png";
 import { usersService } from "../services/usersService";
-import { authStorage, type AuthSession } from "../services/authStorage";
+import {
+  authStorage,
+  type AuthSession,
+  type EntityOnboarding,
+} from "../services/authStorage";
 
 interface AuthContextValue {
   signedIn: boolean;
   user: User | null;
+  activeEntity: Entity | null;
   signin(session: AuthSession): void;
   signout(): void;
   selectedEntityId: string | null;
   handleChangeSelectedEntityId: (entityId: string) => void;
+  entityOnboarding: EntityOnboarding | null;
+  startEntityOnboarding: (
+    entityId: string,
+    step?: EntityOnboarding["step"]
+  ) => void;
+  advanceEntityOnboarding: (step: EntityOnboarding["step"]) => void;
+  clearEntityOnboarding: () => void;
 }
 
 export const AuthContext = createContext({} as AuthContextValue);
@@ -27,10 +40,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(() =>
     authStorage.getSelectedEntityId()
   );
+  const [entityOnboarding, setEntityOnboarding] =
+    useState<EntityOnboarding | null>(() => authStorage.getEntityOnboarding());
 
   const handleChangeSelectedEntityId = useCallback((entityId: string) => {
     authStorage.setSelectedEntityId(entityId);
     setSelectedEntityId(entityId);
+  }, []);
+
+  const startEntityOnboarding = useCallback(
+    (entityId: string, step: EntityOnboarding["step"] = "create-account") => {
+      const nextState = { entityId, step };
+      authStorage.setEntityOnboarding(nextState);
+      setEntityOnboarding(nextState);
+    },
+    []
+  );
+
+  const advanceEntityOnboarding = useCallback(
+    (step: EntityOnboarding["step"]) => {
+      setEntityOnboarding((currentState) => {
+        if (!currentState) {
+          return currentState;
+        }
+
+        const nextState = {
+          ...currentState,
+          step,
+        };
+
+        authStorage.setEntityOnboarding(nextState);
+
+        return nextState;
+      });
+    },
+    []
+  );
+
+  const clearEntityOnboarding = useCallback(() => {
+    authStorage.clearEntityOnboarding();
+    setEntityOnboarding(null);
   }, []);
 
   const queryClient = useQueryClient();
@@ -43,8 +92,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signout = useCallback(() => {
     authStorage.clearSession();
     authStorage.clearSelectedEntityId();
+    authStorage.clearEntityOnboarding();
     setSignedIn(false);
     setSelectedEntityId(null);
+    setEntityOnboarding(null);
     queryClient.clear();
   }, [queryClient]);
 
@@ -65,7 +116,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!data?.entities.length) {
       authStorage.clearSelectedEntityId();
+      authStorage.clearEntityOnboarding();
       setSelectedEntityId(null);
+      setEntityOnboarding(null);
       return;
     }
 
@@ -87,7 +140,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return nextEntityId;
     });
+
+    setEntityOnboarding((currentState) => {
+      if (!currentState) {
+        return currentState;
+      }
+
+      const entityStillExists = data.entities.some(
+        (entity) => entity.id === currentState.entityId
+      );
+
+      if (entityStillExists) {
+        return currentState;
+      }
+
+      authStorage.clearEntityOnboarding();
+      return null;
+    });
   }, [data]);
+
+  const activeEntity = useMemo(
+    () =>
+      data?.entities.find((entity) => entity.id === selectedEntityId) ??
+      data?.entities[0] ??
+      null,
+    [data?.entities, selectedEntityId]
+  );
 
   return (
     <AuthContext.Provider
@@ -96,8 +174,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signin,
         signout,
         user: data ?? null,
+        activeEntity,
         selectedEntityId,
         handleChangeSelectedEntityId,
+        entityOnboarding,
+        startEntityOnboarding,
+        advanceEntityOnboarding,
+        clearEntityOnboarding,
       }}
     >
       {isFetching && <PageLoader isLoading={isFetching} logoPath={logo} />}

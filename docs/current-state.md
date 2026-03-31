@@ -8,9 +8,11 @@
 - Carregamento do usuario atual e das entidades
 - Troca de entidade ativa com persistencia local
 - Criacao e edicao de entidades PF/PJ
+- Redirecionamento da entidade nova para o fluxo de configuracao inicial
 - Tela dedicada de gestao de entidades
 - Tela dedicada de gestao de contas
 - Dashboard com dados reais da API
+- Header e estados vazios mais explicitos sobre qual entidade esta ativa
 - Resumo de contas a pagar e contas a receber no dashboard
 - Tela dedicada de contas a pagar
 - Tela dedicada de contas a receber
@@ -33,6 +35,7 @@
 - Sidebar e seletor de entidade foram ajustados para o dominio real PF/PJ.
 - `lint` voltou a funcionar com uma baseline compativel com o estado atual do projeto.
 - A gestao de contas agora invalida tambem o dashboard para manter os saldos sincronizados.
+- O app passou a persistir o passo de onboarding da entidade para guiar primeira conta e primeira transacao.
 
 ## Debitos ainda existentes
 

@@ -5,6 +5,11 @@ export type AuthSession = {
   refreshToken?: string | null;
 };
 
+export type EntityOnboarding = {
+  entityId: string;
+  step: "create-account" | "first-transaction";
+};
+
 const canUseStorage = () => typeof window !== "undefined";
 
 const getItem = (key: string) => {
@@ -23,6 +28,21 @@ const removeItem = (key: string) => {
   if (!canUseStorage()) return;
 
   window.localStorage.removeItem(key);
+};
+
+const getJsonItem = <T,>(key: string): T | null => {
+  const value = getItem(key);
+
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    removeItem(key);
+    return null;
+  }
 };
 
 export const authStorage = {
@@ -57,5 +77,14 @@ export const authStorage = {
   },
   clearSelectedEntityId() {
     removeItem(localStorageKeys.SELECTED_ENTITY_ID);
+  },
+  getEntityOnboarding() {
+    return getJsonItem<EntityOnboarding>(localStorageKeys.ENTITY_ONBOARDING);
+  },
+  setEntityOnboarding(value: EntityOnboarding) {
+    setItem(localStorageKeys.ENTITY_ONBOARDING, JSON.stringify(value));
+  },
+  clearEntityOnboarding() {
+    removeItem(localStorageKeys.ENTITY_ONBOARDING);
   },
 };

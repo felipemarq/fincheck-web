@@ -19,6 +19,7 @@ Frontend web do Fincheck. A aplicacao consome a Fincheck API, gerencia a sessao 
 - Sessao autenticada com refresh token automatico
 - Selecao de entidade ativa
 - Gestao de entidades PF/PJ com criacao, edicao e troca pela sidebar
+- Onboarding operacional para entidade nova, guiando da criacao ate a primeira conta e a primeira transacao
 - Gestao dedicada de contas bancarias, caixa e investimento
 - Dashboard
 - Contas a pagar

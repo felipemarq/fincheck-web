@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
 import { useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -60,7 +61,8 @@ export function EntityModal({
   action,
   entity,
 }: EntityModalProps) {
-  const { handleChangeSelectedEntityId } = useAuth();
+  const navigate = useNavigate();
+  const { handleChangeSelectedEntityId, startEntityOnboarding } = useAuth();
   const queryClient = useQueryClient();
 
   const defaultValues = useMemo<FormData>(
@@ -112,13 +114,18 @@ export function EntityModal({
       } else {
         const createdEntity = await createEntity(data);
         handleChangeSelectedEntityId(createdEntity.id);
-        toast.success("Entidade criada com sucesso!");
+        startEntityOnboarding(createdEntity.id, "create-account");
+        toast.success("Entidade criada com sucesso! Agora crie a primeira conta.");
       }
 
       await queryClient.invalidateQueries({
         queryKey: [QueryKeys.ME],
       });
       onClose();
+
+      if (action === "create") {
+        navigate("/accounts");
+      }
     } catch (error) {
       treatAxiosError(error);
     }

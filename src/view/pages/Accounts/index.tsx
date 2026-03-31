@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  IconArrowRight,
   IconBuildingBank,
   IconPlus,
   IconTrash,
   IconWallet,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { QueryKeys } from "@/app/config/QueryKeys";
@@ -15,7 +17,7 @@ import { useAccounts } from "@/app/hooks/useAccounts";
 import { useDashboard } from "@/app/hooks/useDashboard";
 import { accountService } from "@/app/services/accountService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -23,10 +25,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { AccountModal } from "@/view/modals/AccountModal";
 import { ACCOUNT_TYPE_LABELS_PT } from "@/view/i18n/pt/account";
 
 const DEFAULT_ACCOUNT_COLOR = "#868E96";
+const ENTITY_TYPE_LABELS = {
+  PF: "Pessoa fisica",
+  PJ: "Pessoa juridica",
+} as const;
 
 function formatMoney(value: number) {
   return value.toLocaleString("pt-BR", {
@@ -36,7 +43,13 @@ function formatMoney(value: number) {
 }
 
 export default function Accounts() {
-  const { selectedEntityId } = useAuth();
+  const navigate = useNavigate();
+  const {
+    activeEntity,
+    selectedEntityId,
+    entityOnboarding,
+    advanceEntityOnboarding,
+  } = useAuth();
   const queryClient = useQueryClient();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [accountBeingEdited, setAccountBeingEdited] =
@@ -60,6 +73,10 @@ export default function Accounts() {
   const { isPending: isDeleting, mutateAsync: deleteAccount } = useMutation({
     mutationFn: accountService.remove,
   });
+
+  const isCreateAccountOnboarding =
+    entityOnboarding?.entityId === selectedEntityId &&
+    entityOnboarding.step === "create-account";
 
   const balancesByAccountId = useMemo(() => {
     const map = new Map<string, number>();
@@ -133,6 +150,16 @@ export default function Accounts() {
     }
   };
 
+  const handleCreateAccountSuccess = async () => {
+    if (!isCreateAccountOnboarding) {
+      return;
+    }
+
+    advanceEntityOnboarding("first-transaction");
+    toast("Primeira conta criada. Agora registre a primeira transacao da entidade.");
+    navigate("/");
+  };
+
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="flex flex-col gap-3 px-4 lg:px-6 md:flex-row md:items-center md:justify-between">
@@ -151,6 +178,49 @@ export default function Accounts() {
           Nova conta
         </Button>
       </div>
+
+      {activeEntity && (
+        <div className="px-4 lg:px-6">
+          <Card className={cn(isCreateAccountOnboarding && "border-primary/20 bg-primary/5")}>
+            <CardHeader className="gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-primary">
+                <span className="inline-flex items-center gap-2 rounded-full bg-background/80 px-3 py-1">
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: activeEntity.color }}
+                  />
+                  Entidade ativa
+                </span>
+                <span>{ENTITY_TYPE_LABELS[activeEntity.type]}</span>
+              </div>
+              <div>
+                <CardTitle>{activeEntity.name}</CardTitle>
+                <CardDescription>
+                  {isCreateAccountOnboarding
+                    ? "Voce acabou de criar esta entidade. O proximo passo e cadastrar a primeira conta para comecar a operar nela."
+                    : "As contas desta tela pertencem somente a esta entidade. Trocar a entidade ativa muda completamente os dados exibidos."}
+                </CardDescription>
+              </div>
+            </CardHeader>
+            {isCreateAccountOnboarding && (
+              <CardContent className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={() => setIsCreateModalOpen(true)}>
+                  <IconBuildingBank className="size-4" />
+                  Criar primeira conta
+                </Button>
+                <button
+                  type="button"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                  onClick={() => navigate("/")}
+                >
+                  <IconArrowRight className="size-4" />
+                  Voltar ao dashboard
+                </button>
+              </CardContent>
+            )}
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 xl:grid-cols-4">
         <Card>
@@ -257,7 +327,7 @@ export default function Accounts() {
               <Card key={account.id} className="overflow-hidden">
                 <div
                   className="h-2 w-full"
-                  style={{ backgroundColor: account.color ?? "#868E96" }}
+                  style={{ backgroundColor: account.color ?? DEFAULT_ACCOUNT_COLOR }}
                 />
                 <CardHeader>
                   <CardDescription>
@@ -313,6 +383,7 @@ export default function Accounts() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         action="create"
+        onSuccess={handleCreateAccountSuccess}
       />
 
       <AccountModal
