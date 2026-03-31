@@ -25,7 +25,7 @@ export type ListTransactionsParams = {
   minValue?: number;
   maxValue?: number;
 
-  sortBy?: "date" | "createdAt" | "value" | "name";
+  sortBy?: "date" | "dueDate" | "createdAt" | "value" | "name";
   sortDir?: "asc" | "desc";
   page?: number; // 1-based
   pageSize?: number; // 1..100

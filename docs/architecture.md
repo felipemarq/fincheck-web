@@ -21,6 +21,8 @@ O frontend está organizado em três blocos principais:
 Hoje o app expõe as seguintes áreas privadas:
 
 - `/`: dashboard
+- `/payables`: contas a pagar
+- `/receivables`: contas a receber
 - `/credit-cards`: cartões
 - `/contacts`: contatos
 - `/taxes`: impostos
@@ -42,4 +44,5 @@ As rotas públicas ficam em:
 ## Integração com a API
 
 - A URL base fica em `VITE_API_URL`.
+- O dashboard também usa a seção `settlements` para resumir contas a pagar e contas a receber.
 - O frontend consome os endpoints já consolidados de auth, contas, categorias, cartões, contatos, impostos, transações, recorrências e dashboard.

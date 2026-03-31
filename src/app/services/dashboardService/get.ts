@@ -13,7 +13,8 @@ export type DashboardSection =
   | "cashflow"
   | "topCategories"
   | "due"
-  | "tax";
+  | "tax"
+  | "settlements";
 
 export interface GetDashboardParams {
   entityId: string;
@@ -73,6 +74,24 @@ export interface DashboardTax {
   missingRate: boolean; // true => pedir configuração
 }
 
+export interface DashboardSettlementSummary {
+  openTotal: number;
+  openCount: number;
+  overdueTotal: number;
+  overdueCount: number;
+  dueTodayTotal: number;
+  dueTodayCount: number;
+  upcomingTotal: number;
+  upcomingCount: number;
+}
+
+export interface DashboardSettlements {
+  referenceDate: string;
+  horizonDays: number;
+  payables: DashboardSettlementSummary;
+  receivables: DashboardSettlementSummary;
+}
+
 export interface Delta {
   current: number;
   prev: number;
@@ -104,6 +123,7 @@ export interface DashboardResponse {
   topCategories?: DashboardTopCategory[];
   due?: DashboardDueItem[];
   tax?: DashboardTax;
+  settlements?: DashboardSettlements;
   insights?: DashboardInsights;
 }
 

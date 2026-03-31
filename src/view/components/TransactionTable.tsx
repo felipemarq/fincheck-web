@@ -150,7 +150,7 @@ type LocalFilters = {
   dueDateEnd?: string;
   minValue?: string;
   maxValue?: string;
-  sortBy?: "date" | "createdAt" | "value" | "name";
+  sortBy?: "date" | "dueDate" | "createdAt" | "value" | "name";
   sortDir?: "asc" | "desc";
   accountId?: string[]; // multi
   categoryId?: string[]; // multi
@@ -171,11 +171,19 @@ export function TransactionsTable({
   entityId,
   initialAccountIds = [],
   initialCategoryIds = [],
+  initialTypes = [],
+  initialIsPaid = "all",
+  initialSortBy = "date",
+  initialSortDir = "desc",
   enabled = true,
 }: {
   entityId: string;
   initialAccountIds?: string[];
   initialCategoryIds?: string[];
+  initialTypes?: Transaction.Type[];
+  initialIsPaid?: "all" | "true" | "false";
+  initialSortBy?: "date" | "dueDate" | "createdAt" | "value" | "name";
+  initialSortDir?: "asc" | "desc";
   enabled?: boolean;
 }) {
   // estado dos filtros/paginação/ordenação
@@ -183,10 +191,14 @@ export function TransactionsTable({
     ...DEFAULT_LOCAL,
     accountId: initialAccountIds,
     categoryId: initialCategoryIds,
+    types: initialTypes,
+    isPaid: initialIsPaid,
+    sortBy: initialSortBy,
+    sortDir: initialSortDir,
   });
   const [pageIndex, setPageIndex] = React.useState(0); // 0-based no UI
   const [sorting, setSorting] = React.useState<SortingState>([
-    { id: local.sortBy!, desc: local.sortDir === "desc" },
+    { id: initialSortBy, desc: initialSortDir === "desc" },
   ]);
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -568,6 +580,7 @@ export function TransactionsTable({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="date">Data</SelectItem>
+              <SelectItem value="dueDate">Vencimento</SelectItem>
               <SelectItem value="createdAt">Criado em</SelectItem>
               <SelectItem value="value">Valor</SelectItem>
               <SelectItem value="name">Nome</SelectItem>
@@ -738,13 +751,13 @@ export function TransactionsTable({
           />
 
           <Select
-            value={local.types[0] ?? ""}
+            value={local.types[0] ?? "-"}
             onValueChange={(v) => {
               // simples: alterna único; se quiser multi, troque por combobox
               //@ts-ignore
               setLocal((s) => ({
                 ...s,
-                types: v ? [v as TransactionType] : [],
+                types: v === "-" ? [] : [v as TransactionType],
               }));
               setPageIndex(0);
             }}

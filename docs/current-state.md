@@ -8,6 +8,9 @@
 - Carregamento do usuário atual e das entidades
 - Troca de entidade ativa com persistência local
 - Dashboard com dados reais da API
+- Resumo de contas a pagar e contas a receber no dashboard
+- Tela dedicada de contas a pagar
+- Tela dedicada de contas a receber
 - Listagem, criação e edição de cartões
 - Listagem, criação, edição e exclusão de contatos
 - Configuração mensal de impostos com integração ao dashboard
@@ -32,6 +35,6 @@
 
 ## Próximo passo recomendado
 
-1. consolidar a experiência do dashboard e das tabelas principais
+1. consolidar a experiência de contas a pagar/receber com filtros e ações mais orientadas a cobrança e pagamento
 2. abrir o módulo de relatórios
 3. ligar investimentos aos endpoints já disponíveis no backend

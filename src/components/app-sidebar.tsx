@@ -6,6 +6,8 @@ import {
   IconListDetails,
   IconRepeat,
   IconReceipt2,
+  IconTrendingDown,
+  IconTrendingUp,
   IconUsers,
 } from "@tabler/icons-react";
 import wordmark from "@/assets/moneystack_wordmark.png";
@@ -29,6 +31,16 @@ const navMain = [
     title: "Dashboard",
     url: "/",
     icon: IconDashboard,
+  },
+  {
+    title: "Contas a pagar",
+    url: "/payables",
+    icon: IconTrendingDown,
+  },
+  {
+    title: "Contas a receber",
+    url: "/receivables",
+    icon: IconTrendingUp,
   },
   {
     title: "Recorrências",
