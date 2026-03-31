@@ -3,6 +3,7 @@
 ## O que está funcionando
 
 - Login e cadastro
+- Solicitação e confirmação de recuperação de senha
 - Recuperação transparente de sessão por refresh token
 - Carregamento do usuário atual e das entidades
 - Troca de entidade ativa com persistência local
@@ -26,11 +27,10 @@
 
 - Há bastante código de UI herdado de scaffolds e componentes experimentais.
 - O app ainda não cobre os módulos de relatórios, contatos e investimentos.
-- O fluxo visual de recuperação de senha ainda não foi implementado no frontend.
 - O bundle de produção ainda está grande e merece uma etapa futura de code splitting.
 
 ## Próximo passo recomendado
 
 1. consolidar a experiência do dashboard e das tabelas principais
-2. abrir o módulo de cartões
-3. ligar impostos e relatórios a partir dos endpoints já disponíveis no backend
+2. abrir o módulo de relatórios
+3. ligar contatos e investimentos aos endpoints já disponíveis no backend

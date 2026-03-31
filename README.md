@@ -15,6 +15,7 @@ Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sess�
 ## O que existe hoje
 
 - Login e cadastro
+- Recuperação de senha
 - Sessão autenticada com refresh token automático
 - Seleção de entidade ativa
 - Dashboard
@@ -29,7 +30,6 @@ Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sess�
 - Relatórios
 - Contatos
 - Investimentos
-- Recuperação de senha no fluxo da interface
 
 ## Estrutura principal
 

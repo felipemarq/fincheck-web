@@ -10,6 +10,8 @@ import RecurringTransactions from "@/view/pages/RecurringTransactions";
 import Taxes from "@/view/pages/Taxes";
 const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
+const ForgotPassword = lazy(() => import("@/view/pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/view/pages/ResetPassword"));
 
 export const Router = () => {
   return (
@@ -20,6 +22,8 @@ export const Router = () => {
             <Route element={<LoginLayout />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
             </Route>
           </Route>
 

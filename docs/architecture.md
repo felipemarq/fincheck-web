@@ -10,7 +10,7 @@ O frontend está organizado em três blocos principais:
 
 ## Fluxo de autenticação
 
-1. Login e cadastro chamam os endpoints de auth da API.
+1. Login, cadastro e recuperação de senha chamam os endpoints de auth da API.
 2. `AuthContext` persiste `accessToken`, `refreshToken` e entidade selecionada.
 3. O `httpClient` envia o token no header `Authorization`.
 4. Em `401`, o cliente tenta renovar a sessão via `/auth/refresh-token`.
@@ -18,15 +18,19 @@ O frontend está organizado em três blocos principais:
 
 ## Roteamento
 
-Hoje o app expõe duas áreas privadas:
+Hoje o app expõe as seguintes áreas privadas:
 
 - `/`: dashboard
+- `/credit-cards`: cartões
+- `/taxes`: impostos
 - `/recurring-transactions`: gestão de recorrências
 
 As rotas públicas ficam em:
 
 - `/login`
 - `/register`
+- `/forgot-password`
+- `/reset-password`
 
 ## Estado e cache
 
