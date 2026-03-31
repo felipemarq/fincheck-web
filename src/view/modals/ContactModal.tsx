@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -58,11 +59,14 @@ export function ContactModal({
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
 
-  const defaultValues: FormData = {
-    name: contact?.name ?? "",
-    email: contact?.email ?? "",
-    phone: contact?.phone ?? "",
-  };
+  const defaultValues = useMemo<FormData>(
+    () => ({
+      name: contact?.name ?? "",
+      email: contact?.email ?? "",
+      phone: contact?.phone ?? "",
+    }),
+    [contact?.email, contact?.name, contact?.phone]
+  );
 
   const {
     register,
@@ -75,9 +79,11 @@ export function ContactModal({
   });
 
   useEffect(() => {
-    if (isOpen) {
-      reset(defaultValues);
+    if (!isOpen) {
+      return;
     }
+
+    reset(defaultValues);
   }, [defaultValues, isOpen, reset]);
 
   const { isPending: isCreating, mutateAsync: createContact } = useMutation({
@@ -128,6 +134,11 @@ export function ContactModal({
           <DialogTitle>
             {action === "update" ? "Editar contato" : "Novo contato"}
           </DialogTitle>
+          <DialogDescription>
+            {action === "update"
+              ? "Atualize os dados do contato da entidade ativa."
+              : "Cadastre um contato para reutilizar em transacoes e recorrencias."}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
