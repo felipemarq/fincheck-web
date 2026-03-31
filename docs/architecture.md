@@ -47,3 +47,4 @@ As rotas públicas ficam em:
 - A URL base fica em `VITE_API_URL`.
 - O dashboard também usa a seção `settlements` para resumir contas a pagar e contas a receber.
 - O frontend consome os endpoints já consolidados de auth, contas, categorias, cartões, contatos, impostos, transações, recorrências e dashboard.
+- As telas de pagar/receber reutilizam `GET /transactions` com filtros por vencimento e contato, e `PATCH /transactions/{transactionId}` para liquidar itens diretamente da tabela.

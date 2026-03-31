@@ -13,6 +13,9 @@
 - Resumo de contas a pagar e contas a receber no dashboard
 - Tela dedicada de contas a pagar
 - Tela dedicada de contas a receber
+- Filtros rápidos por vencidas/hoje/próximos dias
+- Agrupamento operacional por contato
+- Marcação direta de pago/recebido nas tabelas de pagar/receber
 - Listagem, criação e edição de cartões
 - Listagem, criação, edição e exclusão de contatos
 - Configuração mensal de impostos com integração ao dashboard

@@ -22,6 +22,7 @@ Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sess�
 - Dashboard
 - Contas a pagar
 - Contas a receber
+- Filtros rapidos de vencimento e agrupamento por contato em pagar/receber
 - Cartões de crédito
 - Contatos
 - Configuração de impostos mensais

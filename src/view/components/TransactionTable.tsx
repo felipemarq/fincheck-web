@@ -144,6 +144,7 @@ type LocalFilters = {
   search?: string;
   types: Transaction.Type[]; // multi
   isPaid?: "all" | "true" | "false";
+  contactId?: string[];
   startDate?: string;
   endDate?: string;
   dueDateStart?: string;
@@ -171,19 +172,27 @@ export function TransactionsTable({
   entityId,
   initialAccountIds = [],
   initialCategoryIds = [],
+  initialContactIds = [],
   initialTypes = [],
   initialIsPaid = "all",
+  initialDueDateStart,
+  initialDueDateEnd,
   initialSortBy = "date",
   initialSortDir = "desc",
+  quickSettleMode,
   enabled = true,
 }: {
   entityId: string;
   initialAccountIds?: string[];
   initialCategoryIds?: string[];
+  initialContactIds?: string[];
   initialTypes?: Transaction.Type[];
   initialIsPaid?: "all" | "true" | "false";
+  initialDueDateStart?: string;
+  initialDueDateEnd?: string;
   initialSortBy?: "date" | "dueDate" | "createdAt" | "value" | "name";
   initialSortDir?: "asc" | "desc";
+  quickSettleMode?: "payable" | "receivable";
   enabled?: boolean;
 }) {
   // estado dos filtros/paginação/ordenação
@@ -191,8 +200,11 @@ export function TransactionsTable({
     ...DEFAULT_LOCAL,
     accountId: initialAccountIds,
     categoryId: initialCategoryIds,
+    contactId: initialContactIds,
     types: initialTypes,
     isPaid: initialIsPaid,
+    dueDateStart: initialDueDateStart,
+    dueDateEnd: initialDueDateEnd,
     sortBy: initialSortBy,
     sortDir: initialSortDir,
   });
@@ -244,6 +256,13 @@ export function TransactionsTable({
     mutationFn: transactionService.remove,
   });
 
+  const {
+    isPending: isUpdatingSettlementTransaction,
+    mutateAsync: mutateAsyncUpdateTransaction,
+  } = useMutation({
+    mutationFn: transactionService.update,
+  });
+
   const onDeleteTransaction = async (transactionId: string) => {
     try {
       await mutateAsyncRemoveTransaction({
@@ -262,12 +281,42 @@ export function TransactionsTable({
     }
   };
 
+  const onQuickSettleTransaction = async (transaction: TransactionWithRefsDTO) => {
+    try {
+      await mutateAsyncUpdateTransaction({
+        transactionId: transaction.id,
+        entityId,
+        accountId: transaction.accountId,
+        categoryId: transaction.categoryId,
+        name: transaction.name,
+        value: transaction.value,
+        type: transaction.type,
+        isPaid: true,
+        date: transaction.date,
+        dueDate: transaction.dueDate,
+        contactId: transaction.contactId,
+        notes: transaction.notes,
+      });
+
+      toast.success(
+        quickSettleMode === "payable"
+          ? "Conta marcada como paga!"
+          : "Conta marcada como recebida!"
+      );
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.TRANSACTIONS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
+    } catch (error) {
+      treatAxiosError(error as AxiosError);
+    }
+  };
+
   // build filtros p/ API
   const apiFilters: ListTransactionsParams = React.useMemo(
     () => ({
       entityId,
       accountId: local.accountId,
       categoryId: local.categoryId,
+      contactId: local.contactId,
       type: local.types,
       isPaid: local.isPaid === "all" ? undefined : local.isPaid === "true",
       startDate: local.startDate,
@@ -434,6 +483,11 @@ export function TransactionsTable({
       cell: ({ row }) => row.original.category?.name,
     },
     {
+      accessorKey: "contact.name",
+      header: "Contato",
+      cell: ({ row }) => row.original.contact?.name ?? "Sem contato",
+    },
+    {
       id: "actions",
       cell: ({ row }) => (
         <DropdownMenu>
@@ -447,7 +501,19 @@ export function TransactionsTable({
               <span className="sr-only">Menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-56">
+            {quickSettleMode && (
+              <DropdownMenuItem
+                onClick={() => onQuickSettleTransaction(row.original)}
+                disabled={isUpdatingSettlementTransaction}
+              >
+                <IconCircleCheckFilled className="mr-2" />
+                {quickSettleMode === "payable"
+                  ? "Marcar como pago"
+                  : "Marcar como recebido"}
+              </DropdownMenuItem>
+            )}
+            {quickSettleMode && <DropdownMenuSeparator />}
             <DropdownMenuItem
               onClick={() => openEditTransactionModal(row.original)}
             >
@@ -988,6 +1054,9 @@ function TableCellViewer({ item }: { item: TransactionWithRefsDTO }) {
           </div>
           <div>
             <strong>Categoria:</strong> {shortId(item.categoryId)}
+          </div>
+          <div>
+            <strong>Contato:</strong> {item.contact?.name ?? "Sem contato"}
           </div>
           <div>
             <strong>Pago:</strong> {item.isPaid ? "Sim" : "Não"}

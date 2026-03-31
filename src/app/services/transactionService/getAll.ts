@@ -4,6 +4,7 @@ import type { Transaction } from "@/app/entities/Transaction";
 import { httpClient } from "../httpClient";
 import type { Account } from "@/app/entities/Account";
 import type { Category } from "@/app/entities/Category";
+import type { Contact } from "@/app/entities/Contact";
 
 // ============= filtros =================
 export type TransactionType = Transaction.Type;
@@ -13,6 +14,7 @@ export type ListTransactionsParams = {
 
   accountId?: string[];
   categoryId?: string[];
+  contactId?: string[];
   type?: TransactionType[];
 
   isPaid?: boolean;
@@ -38,6 +40,9 @@ export type ListTransactionsParams = {
 export type TransactionWithRefsDTO = Transaction.Attributes & {
   account: Pick<Account.Attributes, "id" | "name" | "color" | "type"> | null;
   category: Pick<Category.Attributes, "id" | "name" | "icon" | "type"> | null;
+  contact:
+    | Pick<Contact.Attributes, "id" | "name" | "email" | "phone">
+    | null;
 };
 
 export interface ListTransactionsResponse {
@@ -68,6 +73,8 @@ export async function getAll(params: ListTransactionsParams) {
     query.set("accountId", toCsv(params.accountId)!);
   if (params.categoryId?.length)
     query.set("categoryId", toCsv(params.categoryId)!);
+  if (params.contactId?.length)
+    query.set("contactId", toCsv(params.contactId)!);
   if (params.type?.length) query.set("type", toCsv(params.type as string[])!);
 
   if (typeof params.isPaid === "boolean")
