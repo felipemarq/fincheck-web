@@ -8,6 +8,7 @@
 - Troca de entidade ativa com persistência local
 - Dashboard com dados reais da API
 - Listagem, criação e edição de cartões
+- Configuração mensal de impostos com integração ao dashboard
 - Criação, edição e exclusão de transações
 - Criação, edição e exclusão de recorrências
 - Criação de contas

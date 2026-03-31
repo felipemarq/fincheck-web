@@ -5,6 +5,7 @@ import {
   IconFolder,
   IconListDetails,
   IconRepeat,
+  IconReceipt2,
   IconUsers,
 } from "@tabler/icons-react";
 import wordmark from "@/assets/moneystack_wordmark.png";
@@ -17,7 +18,6 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
 } from "@/view/components/ui/sidebar";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -39,6 +39,11 @@ const navMain = [
     title: "Cartões",
     url: "/credit-cards",
     icon: IconChartBar,
+  },
+  {
+    title: "Impostos",
+    url: "/taxes",
+    icon: IconReceipt2,
   },
   {
     title: "Relatórios (em desenvolvimento)",
@@ -72,33 +77,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <div className="flex items-center gap-2 self-center font-medium">
-                <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-                  <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
-                </div>
-                <img src={wordmark} alt="wordmark" className="h-8" />
+            <div className="flex items-center gap-2 px-2 py-1.5 font-medium">
+              <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
+                <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
               </div>
-            </SidebarMenuButton>
+              <img src={wordmark} alt="wordmark" className="h-8" />
+            </div>
           </SidebarMenuItem>
 
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <div className="mt-4 flex items-center gap-2 self-center border-2 font-medium">
-                Entidade:
-                <EntitySwitcher
-                  entities={entities}
-                  activeEntityId={selectedEntityId ?? undefined}
-                  onChange={handleChangeSelectedEntityId}
-                />
+            <div className="mt-4 space-y-2 px-2">
+              <div className="text-sidebar-foreground/70 text-xs font-medium uppercase tracking-wide">
+                Entidade
               </div>
-            </SidebarMenuButton>
+              <EntitySwitcher
+                entities={entities}
+                activeEntityId={selectedEntityId ?? undefined}
+                onChange={handleChangeSelectedEntityId}
+              />
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

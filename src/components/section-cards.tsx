@@ -1,9 +1,12 @@
-// src/view/modules/dashboard/SectionCards.tsx
 import {
+  IconMinus,
   IconTrendingDown,
   IconTrendingUp,
-  IconMinus,
 } from "@tabler/icons-react";
+import { Link } from "react-router-dom";
+
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/view/components/ui/badge";
 import {
   Card,
@@ -25,8 +28,11 @@ type SectionCardsProps = {
   isFetchingDashboard: boolean;
 };
 
-const fmtBRL = (n: number | undefined) =>
-  (n ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtBRL = (value: number | undefined) =>
+  (value ?? 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 
 function DeltaBadge({ delta }: { delta?: Delta }) {
   if (!delta) {
@@ -37,6 +43,7 @@ function DeltaBadge({ delta }: { delta?: Delta }) {
       </Badge>
     );
   }
+
   const pct =
     delta.deltaPct == null
       ? "—%"
@@ -46,15 +53,15 @@ function DeltaBadge({ delta }: { delta?: Delta }) {
     delta.trend === "up"
       ? IconTrendingUp
       : delta.trend === "down"
-      ? IconTrendingDown
-      : IconMinus;
+        ? IconTrendingDown
+        : IconMinus;
 
   const color =
     delta.trend === "up"
-      ? "text-emerald-600 border-emerald-600"
+      ? "border-emerald-600 text-emerald-600"
       : delta.trend === "down"
-      ? "text-rose-600 border-rose-600"
-      : "text-muted-foreground";
+        ? "border-rose-600 text-rose-600"
+        : "text-muted-foreground";
 
   return (
     <Badge variant="outline" className={color}>
@@ -75,21 +82,17 @@ export function SectionCards({
   const taxInsight = dashboard?.insights?.tax?.estimated;
 
   const prevLabel = dashboard?.previousRange
-    ? new Date(dashboard.previousRange.from).toLocaleDateString("pt-BR", {
+    ? `${new Date(dashboard.previousRange.from).toLocaleDateString("pt-BR", {
         timeZone: "UTC",
-      }) +
-      " – " +
-      new Date(dashboard.previousRange.to).toLocaleDateString("pt-BR", {
+      })} – ${new Date(dashboard.previousRange.to).toLocaleDateString("pt-BR", {
         timeZone: "UTC",
-      })
+      })}`
     : "período anterior";
 
-  // loaders simples (pode trocar por Skeleton do seu design system)
   const loading = isFetchingDashboard && !dashboard;
 
   return (
     <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-      {/* Receitas */}
       <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
         <CardHeader>
           <CardDescription>
@@ -107,14 +110,13 @@ export function SectionCards({
             {insights?.income?.trend === "up"
               ? "Subiu neste período"
               : insights?.income?.trend === "down"
-              ? "Caiu neste período"
-              : "Estável neste período"}
+                ? "Caiu neste período"
+                : "Estável neste período"}
           </div>
           <div className="text-muted-foreground">Comparado a {prevLabel}</div>
         </CardFooter>
       </Card>
 
-      {/* Despesas */}
       <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
         <CardHeader>
           <CardDescription>
@@ -132,14 +134,13 @@ export function SectionCards({
             {insights?.expense?.trend === "up"
               ? "Aumentaram"
               : insights?.expense?.trend === "down"
-              ? "Diminuíram"
-              : "Estáveis"}
+                ? "Diminuíram"
+                : "Estáveis"}
           </div>
           <div className="text-muted-foreground">Comparado a {prevLabel}</div>
         </CardFooter>
       </Card>
 
-      {/* Resultado (Net) */}
       <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
         <CardHeader>
           <CardDescription>Resultado (Net)</CardDescription>
@@ -155,19 +156,16 @@ export function SectionCards({
             {insights?.net?.trend === "up"
               ? "Resultado melhor"
               : insights?.net?.trend === "down"
-              ? "Resultado pior"
-              : "Resultado estável"}
+                ? "Resultado pior"
+                : "Resultado estável"}
           </div>
           <div className="text-muted-foreground">Comparado a {prevLabel}</div>
         </CardFooter>
       </Card>
 
-      {/* Imposto estimado (competência do mês) */}
       <Card className="@container/card data-[slot=card]:bg-gradient-to-t data-[slot=card]:from-primary/5 data-[slot=card]:to-card shadow-xs">
         <CardHeader>
-          <CardDescription>
-            Imposto estimado ({tax?.month ?? "—"})
-          </CardDescription>
+          <CardDescription>Imposto estimado ({tax?.month ?? "—"})</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {loading ? "—" : fmtBRL(tax?.estimatedTax)}
           </CardTitle>
@@ -180,14 +178,22 @@ export function SectionCards({
             {tax?.missingRate
               ? "Configure a alíquota do mês"
               : taxInsight?.trend === "up"
-              ? "Tributo maior que no mês anterior"
-              : taxInsight?.trend === "down"
-              ? "Tributo menor que no mês anterior"
-              : "Sem variação"}
+                ? "Tributo maior que no mês anterior"
+                : taxInsight?.trend === "down"
+                  ? "Tributo menor que no mês anterior"
+                  : "Sem variação"}
           </div>
           <div className="text-muted-foreground">
             Comparado a {dashboard?.insights?.tax?.prevMonth ?? "mês anterior"}
           </div>
+          {tax?.missingRate && (
+            <Link
+              to="/taxes"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-2")}
+            >
+              Configurar impostos
+            </Link>
+          )}
         </CardFooter>
       </Card>
     </div>
