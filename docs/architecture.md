@@ -21,6 +21,7 @@ O frontend está organizado em três blocos principais:
 Hoje o app expõe as seguintes áreas privadas:
 
 - `/`: dashboard
+- `/entities`: gestão de entidades
 - `/payables`: contas a pagar
 - `/receivables`: contas a receber
 - `/credit-cards`: cartões

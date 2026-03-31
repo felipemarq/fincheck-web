@@ -7,6 +7,8 @@
 - Recuperação transparente de sessão por refresh token
 - Carregamento do usuário atual e das entidades
 - Troca de entidade ativa com persistência local
+- Criação e edição de entidades PF/PJ
+- Tela dedicada de gestão de entidades
 - Dashboard com dados reais da API
 - Resumo de contas a pagar e contas a receber no dashboard
 - Tela dedicada de contas a pagar

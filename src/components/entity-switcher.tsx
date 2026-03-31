@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, PencilLine, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -26,12 +27,23 @@ interface EntitySwitcherProps {
   entities: EntityWithLogo[];
   onChange: (entityId: string) => void;
   activeEntityId?: string;
+  onCreateEntity?: () => void;
+  onEditActiveEntity?: () => void;
+  manageHref?: string;
 }
+
+const ENTITY_TYPE_LABELS: Record<Entity["type"], string> = {
+  PF: "Pessoa física",
+  PJ: "Pessoa jurídica",
+};
 
 export function EntitySwitcher({
   entities,
   onChange,
   activeEntityId,
+  onCreateEntity,
+  onEditActiveEntity,
+  manageHref = "/entities",
 }: EntitySwitcherProps) {
   const activeEntity = React.useMemo(
     () => entities.find((entity) => entity.id === activeEntityId) ?? entities[0],
@@ -47,46 +59,82 @@ export function EntitySwitcher({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton className="w-fit px-1.5">
-              <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-5 items-center justify-center rounded-md">
-                <activeEntity.logo className="size-3" />
+            <SidebarMenuButton className="h-auto w-full justify-between px-2 py-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <div
+                  className="flex aspect-square size-8 items-center justify-center rounded-md text-white"
+                  style={{ backgroundColor: activeEntity.color }}
+                >
+                  <activeEntity.logo className="size-4" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <div className="truncate font-medium">{activeEntity.name}</div>
+                  <div className="text-sidebar-foreground/70 truncate text-xs">
+                    {ENTITY_TYPE_LABELS[activeEntity.type]}
+                  </div>
+                </div>
               </div>
-              <span className="truncate font-medium">{activeEntity.name}</span>
               <ChevronDown className="opacity-50" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-64 rounded-lg"
+            className="w-72 rounded-lg"
             align="start"
             side="bottom"
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-muted-foreground text-xs">
-              Entities
+              Alternar entidade
             </DropdownMenuLabel>
             {entities.map((entity, index) => (
               <DropdownMenuItem
-                key={entity.name}
+                key={entity.id}
                 onClick={() => {
-                  onChange?.(entity.id);
+                  onChange(entity.id);
                 }}
                 className="gap-2 p-2"
               >
-                <div className="flex size-6 items-center justify-center rounded-xs border">
+                <div
+                  className="flex size-8 items-center justify-center rounded-md text-white"
+                  style={{ backgroundColor: entity.color }}
+                >
                   <entity.logo className="size-4 shrink-0" />
                 </div>
-                {entity.name}
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{entity.name}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {ENTITY_TYPE_LABELS[entity.type]}
+                  </div>
+                </div>
+                <DropdownMenuShortcut>
+                  {entity.id === activeEntity.id ? "Ativa" : `⌘${index + 1}`}
+                </DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
+            <DropdownMenuItem
+              className="gap-2 p-2"
+              onClick={onEditActiveEntity}
+              disabled={!activeEntity}
+            >
+              <div className="bg-background flex size-6 items-center justify-center rounded-md border">
+                <PencilLine className="size-4" />
+              </div>
+              <div className="font-medium">Editar entidade atual</div>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2 p-2" onClick={onCreateEntity}>
               <div className="bg-background flex size-6 items-center justify-center rounded-md border">
                 <Plus className="size-4" />
               </div>
-              <div className="text-muted-foreground font-medium">
-                Nova entidade em breve
-              </div>
+              <div className="font-medium">Nova entidade</div>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="gap-2 p-2">
+              <Link to={manageHref}>
+                <div className="bg-background flex size-6 items-center justify-center rounded-md border">
+                  <activeEntity.logo className="size-4" />
+                </div>
+                <div className="font-medium">Gerenciar entidades</div>
+              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

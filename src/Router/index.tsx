@@ -1,16 +1,19 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+
 import { AuthGuard } from "./AuthGuard";
-import { LoginLayout } from "@/view/Layouts/LoginLayout";
 import AppLayout from "@/view/Layouts/AppLayout";
+import { LoginLayout } from "@/view/Layouts/LoginLayout";
 import { PageLoader } from "@/view/components/PageLoader";
-import Dashboard from "@/view/pages/Dashboard";
-import CreditCards from "@/view/pages/CreditCards";
 import Contacts from "@/view/pages/Contacts";
+import CreditCards from "@/view/pages/CreditCards";
+import Dashboard from "@/view/pages/Dashboard";
+import Entities from "@/view/pages/Entities";
 import Payables from "@/view/pages/Payables";
-import RecurringTransactions from "@/view/pages/RecurringTransactions";
 import Receivables from "@/view/pages/Receivables";
+import RecurringTransactions from "@/view/pages/RecurringTransactions";
 import Taxes from "@/view/pages/Taxes";
+
 const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
 const ForgotPassword = lazy(() => import("@/view/pages/ForgotPassword"));
@@ -33,6 +36,7 @@ export const Router = () => {
           <Route element={<AuthGuard isPrivate={true} />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/entities" element={<Entities />} />
               <Route path="/payables" element={<Payables />} />
               <Route path="/receivables" element={<Receivables />} />
               <Route path="/credit-cards" element={<CreditCards />} />
