@@ -30,6 +30,7 @@ import { treatAxiosError } from "@/app/utils/treatAxiosError";
 import { QueryKeys } from "@/app/config/QueryKeys";
 import { useAccounts } from "@/app/hooks/useAccounts";
 import { useCategories } from "@/app/hooks/useCategories";
+import { useContacts } from "@/app/hooks/useContacts";
 
 // ==== Tipos base (reutilizando os teus) ====
 import { Transaction } from "@/app/entities/Transaction";
@@ -97,6 +98,12 @@ export function RecurringTransactionModal({
   const { categories, isFetchingCategories } = useCategories({
     entityId: selectedEntityId!,
   });
+  const { contacts, isFetchingContacts } = useContacts(
+    {
+      entityId: selectedEntityId!,
+    },
+    Boolean(selectedEntityId)
+  );
 
   const defaultValues = useMemo<RecurringFormData>(
     () => ({
@@ -511,6 +518,39 @@ export function RecurringTransactionModal({
           */}
 
           {/* Ações */}
+          <div className="space-y-2">
+            <Label>Contato (opcional)</Label>
+            <Controller
+              control={control}
+              name="contactId"
+              render={({ field: { onChange, value } }) => (
+                <Select
+                  value={value ?? "__none"}
+                  onValueChange={(nextValue) =>
+                    onChange(nextValue === "__none" ? undefined : nextValue)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecionar contato" />
+                  </SelectTrigger>
+                  {!isFetchingContacts && (
+                    <SelectContent>
+                      <SelectItem value="__none">Sem contato</SelectItem>
+                      {contacts?.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.id!}>
+                          {contact.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  )}
+                </Select>
+              )}
+            />
+            {errors.contactId?.message && (
+              <p className="text-sm text-red-500">{errors.contactId.message}</p>
+            )}
+          </div>
+
           <div className="flex space-x-2 pt-4">
             <Button
               type="button"

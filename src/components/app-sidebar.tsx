@@ -56,8 +56,8 @@ const navMain = [
     icon: IconFolder,
   },
   {
-    title: "Contatos (em desenvolvimento)",
-    url: "#",
+    title: "Contatos",
+    url: "/contacts",
     icon: IconUsers,
   },
 ];

@@ -12,6 +12,7 @@ export interface UpdateTransactionParams {
   isPaid: boolean;
   date: string;
   dueDate?: string;
+  contactId?: string;
   notes?: string;
 }
 

@@ -9,6 +9,7 @@
 - Troca de entidade ativa com persistência local
 - Dashboard com dados reais da API
 - Listagem, criação e edição de cartões
+- Listagem, criação, edição e exclusão de contatos
 - Configuração mensal de impostos com integração ao dashboard
 - Criação, edição e exclusão de transações
 - Criação, edição e exclusão de recorrências
@@ -26,11 +27,11 @@
 ## Débitos ainda existentes
 
 - Há bastante código de UI herdado de scaffolds e componentes experimentais.
-- O app ainda não cobre os módulos de relatórios, contatos e investimentos.
+- O app ainda não cobre os módulos de relatórios e investimentos.
 - O bundle de produção ainda está grande e merece uma etapa futura de code splitting.
 
 ## Próximo passo recomendado
 
 1. consolidar a experiência do dashboard e das tabelas principais
 2. abrir o módulo de relatórios
-3. ligar contatos e investimentos aos endpoints já disponíveis no backend
+3. ligar investimentos aos endpoints já disponíveis no backend

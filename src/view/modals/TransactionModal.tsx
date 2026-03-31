@@ -33,6 +33,7 @@ import { transactionService } from "@/app/services/transactionService";
 import { useAccounts } from "@/app/hooks/useAccounts";
 import { DatePickerInput } from "../components/DatePickerInput";
 import { useCategories } from "@/app/hooks/useCategories";
+import { useContacts } from "@/app/hooks/useContacts";
 import { useEffect, useState } from "react";
 
 // ==== Types & Schema ====
@@ -49,6 +50,7 @@ const schema = z.object({
   isPaid: z.boolean(),
   date: z.date(), // yyyy-mm-dd vindo do <input type="date" />
   dueDate: z.date().optional(), // idem
+  contactId: z.string().uuid().optional(),
   notes: z.string().optional(),
 });
 
@@ -90,6 +92,7 @@ export function TransactionModal({
     isPaid: transaction?.isPaid ?? false, // TODO: selecionar pago
     date: transaction?.date ? new Date(transaction.date) : new Date(), // TODO: preencher data
     dueDate: transaction?.dueDate ? new Date(transaction.dueDate) : undefined, // TODO: preencher vencimento
+    contactId: transaction?.contactId ?? undefined,
     notes: transaction?.notes ?? "", // 1: preencher notas
   };
   const { isFetchingAccounts, accounts } = useAccounts({
@@ -99,6 +102,12 @@ export function TransactionModal({
   const { isFetchingCategories, categories } = useCategories({
     entityId: selectedEntityId!,
   });
+  const { contacts, isFetchingContacts } = useContacts(
+    {
+      entityId: selectedEntityId!,
+    },
+    Boolean(selectedEntityId)
+  );
 
   const {
     control,
@@ -147,6 +156,7 @@ export function TransactionModal({
           isPaid: data.isPaid,
           date: data.date.toISOString(),
           dueDate: data.dueDate?.toISOString() ?? undefined,
+          contactId: data.contactId,
           notes: data.notes,
         });
 
@@ -171,6 +181,7 @@ export function TransactionModal({
           isPaid: data.isPaid,
           date: data.date.toISOString(),
           dueDate: data.dueDate?.toISOString() ?? undefined,
+          contactId: data.contactId,
           notes: data.notes,
         });
         toast.success("Transação atualizada com sucesso!");
@@ -394,6 +405,39 @@ export function TransactionModal({
           </div>
 
           {/* Ações */}
+          <div className="space-y-2">
+            <Label>Contato (opcional)</Label>
+            <Controller
+              control={control}
+              name="contactId"
+              render={({ field: { onChange, value } }) => (
+                <Select
+                  value={value ?? "__none"}
+                  onValueChange={(nextValue) =>
+                    onChange(nextValue === "__none" ? undefined : nextValue)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um contato" />
+                  </SelectTrigger>
+                  {!isFetchingContacts && (
+                    <SelectContent>
+                      <SelectItem value="__none">Sem contato</SelectItem>
+                      {contacts?.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.id!}>
+                          {contact.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  )}
+                </Select>
+              )}
+            />
+            {errors.contactId?.message && (
+              <p className="text-sm text-red-500">{errors.contactId.message}</p>
+            )}
+          </div>
+
           <div className="flex space-x-2 pt-4">
             <Button
               type="button"

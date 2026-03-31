@@ -6,6 +6,7 @@ import AppLayout from "@/view/Layouts/AppLayout";
 import { PageLoader } from "@/view/components/PageLoader";
 import Dashboard from "@/view/pages/Dashboard";
 import CreditCards from "@/view/pages/CreditCards";
+import Contacts from "@/view/pages/Contacts";
 import RecurringTransactions from "@/view/pages/RecurringTransactions";
 import Taxes from "@/view/pages/Taxes";
 const Register = lazy(() => import("@/view/pages/Register"));
@@ -31,6 +32,7 @@ export const Router = () => {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/credit-cards" element={<CreditCards />} />
+              <Route path="/contacts" element={<Contacts />} />
               <Route path="/taxes" element={<Taxes />} />
               <Route
                 path="/recurring-transactions"

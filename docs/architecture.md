@@ -22,6 +22,7 @@ Hoje o app expõe as seguintes áreas privadas:
 
 - `/`: dashboard
 - `/credit-cards`: cartões
+- `/contacts`: contatos
 - `/taxes`: impostos
 - `/recurring-transactions`: gestão de recorrências
 
@@ -41,4 +42,4 @@ As rotas públicas ficam em:
 ## Integração com a API
 
 - A URL base fica em `VITE_API_URL`.
-- O frontend consome os endpoints já consolidados de auth, contas, categorias, cartões, impostos, transações, recorrências e dashboard.
+- O frontend consome os endpoints já consolidados de auth, contas, categorias, cartões, contatos, impostos, transações, recorrências e dashboard.

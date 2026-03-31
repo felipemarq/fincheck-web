@@ -20,6 +20,7 @@ Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sess�
 - Seleção de entidade ativa
 - Dashboard
 - Cartões de crédito
+- Contatos
 - Configuração de impostos mensais
 - CRUD de contas
 - CRUD de transações
@@ -28,7 +29,6 @@ Frontend web do Fincheck. A aplicação consome a Fincheck API, gerencia a sess�
 ## O que ainda está em construção
 
 - Relatórios
-- Contatos
 - Investimentos
 
 ## Estrutura principal

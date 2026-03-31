@@ -11,6 +11,7 @@ export interface CreateTransactionParams {
   isPaid: boolean;
   date: string;
   dueDate?: string;
+  contactId?: string;
   notes?: string;
 }
 
