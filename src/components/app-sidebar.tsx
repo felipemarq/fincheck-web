@@ -10,6 +10,7 @@ import {
   IconFolder,
   IconHelp,
   IconListDetails,
+  IconRepeat,
   IconReport,
   IconSearch,
   IconSettings,
@@ -55,6 +56,11 @@ const data = {
       title: "Dashboard",
       url: "/",
       icon: IconDashboard,
+    },
+    {
+      title: "Recorrências",
+      url: "/recurring-transactions",
+      icon: IconRepeat,
     },
     {
       title: "Relatórios (em desenvolvimento)",

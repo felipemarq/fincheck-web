@@ -1,9 +1,3 @@
-"use client";
-
-import type React from "react";
-
-import { useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +45,7 @@ interface AccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   account?: Account.Attributes;
+  isMandatory?: boolean;
 }
 
 export function AccountModal({
@@ -58,6 +53,7 @@ export function AccountModal({
   onClose,
   account,
   action,
+  isMandatory = false,
 }: AccountModalProps) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
@@ -106,8 +102,13 @@ export function AccountModal({
     }
   });
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isMandatory) return;
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
@@ -129,7 +130,7 @@ export function AccountModal({
                 render={({ field: { onChange, value } }) => (
                   <InputCurrency
                     onChange={onChange}
-                    value={value}
+                    value={value as number}
                     error={errors.initialBalance?.message}
                   />
                 )}
@@ -173,14 +174,16 @@ export function AccountModal({
 
           {/* Buttons */}
           <div className="flex space-x-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="flex-1 "
-            >
-              Cancelar
-            </Button>
+            {!isMandatory && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="flex-1 "
+              >
+                Cancelar
+              </Button>
+            )}
             <Button
               isLoading={isLoadingCreateAccount}
               type="submit"

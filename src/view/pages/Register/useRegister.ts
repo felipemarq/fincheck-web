@@ -9,7 +9,6 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { mutationKeys } from "@/app/config/MutationKeys";
 
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
-import type { SigninParams } from "@/app/services/authService/signIn";
 import type { AxiosError } from "axios";
 import type { SignUpParams } from "@/app/services/authService/signUp";
 const schema = z.object({

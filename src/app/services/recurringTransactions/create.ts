@@ -12,7 +12,7 @@ export interface CreateRecurringParams {
   value: number;
   type: Transaction.Type;
   startDate: string; // ISO
-  endDate: string; // ISO
+  endDate?: string; // ISO
   recurrence: RecurringTransaction.Recurrence;
   notes?: string;
 }

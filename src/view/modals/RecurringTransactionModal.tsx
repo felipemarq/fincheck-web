@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { AxiosError } from "axios";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +35,13 @@ import { useCategories } from "@/app/hooks/useCategories";
 import { Transaction } from "@/app/entities/Transaction";
 import { RecurringTransaction } from "@/app/entities/RecurringTransaction";
 import { recurringTransactionsService } from "@/app/services/recurringTransactions";
+import type { RecurringTransactionDTO } from "@/app/services/recurringTransactions/getAll";
 
 export interface RecurringTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   action: "create" | "update";
+  recurringTransaction?: RecurringTransactionDTO | null;
 }
 
 // ==== Zod schema (espelha o backend) ====
@@ -58,11 +60,11 @@ const schema = z
     type: z.nativeEnum(Transaction.Type, "Tipo é obrigatório"),
 
     startDate: z.date("Data de início é obrigatória"),
-    endDate: z.date("Data de término é obrigatória"),
+    endDate: z.date().optional(),
 
     recurrence: z.nativeEnum(
       RecurringTransaction.Recurrence,
-      "Recorrência é obrigatória"
+      "Recorrência é obrigatória",
     ),
 
     notes: z.string().max(500, "Observações até 500 caracteres").optional(),
@@ -71,7 +73,7 @@ const schema = z
     creditCardId: z.string().uuid().optional(),
     contactId: z.string().uuid().optional(),
   })
-  .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
+  .refine((d) => !d.endDate || d.endDate >= d.startDate, {
     message: "Término não pode ser anterior ao início",
     path: ["endDate"],
   });
@@ -81,9 +83,12 @@ export type RecurringFormData = z.infer<typeof schema>;
 export function RecurringTransactionModal({
   isOpen,
   onClose,
+  action,
+  recurringTransaction,
 }: RecurringTransactionModalProps) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
+  const [hasEndDate, setHasEndDate] = useState(true);
 
   // data base
   const { accounts, isFetchingAccounts } = useAccounts({
@@ -93,25 +98,47 @@ export function RecurringTransactionModal({
     entityId: selectedEntityId!,
   });
 
+  const defaultValues = useMemo<RecurringFormData>(
+    () => ({
+      accountId: recurringTransaction?.accountId ?? "",
+      categoryId: recurringTransaction?.categoryId ?? "",
+      name: recurringTransaction?.name ?? "",
+      value: recurringTransaction?.value ?? "", // melhor que 0 (0 é inválido no zod positive)
+      type:
+        (recurringTransaction?.type as Transaction.Type) ??
+        Transaction.Type.EXPENSE,
+
+      startDate: recurringTransaction?.startDate
+        ? new Date(recurringTransaction.startDate)
+        : new Date(),
+
+      endDate: recurringTransaction?.endDate
+        ? new Date(recurringTransaction.endDate)
+        : undefined,
+
+      recurrence:
+        (recurringTransaction?.recurrence as RecurringTransaction.Recurrence) ??
+        RecurringTransaction.Recurrence.MONTHLY,
+
+      notes: recurringTransaction?.notes ?? undefined,
+
+      creditCardId: recurringTransaction?.creditCardId ?? undefined,
+      contactId: recurringTransaction?.contactId ?? undefined,
+    }),
+    [recurringTransaction],
+  );
+
   const {
     control,
     register,
     handleSubmit,
+    reset,
+    setValue,
     formState: { errors },
     watch,
   } = useForm<RecurringFormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      accountId: "",
-      categoryId: "",
-      name: "",
-      value: 0,
-      type: Transaction.Type.EXPENSE,
-      startDate: new Date(),
-      endDate: new Date(),
-      recurrence: "MONTHLY" as RecurringTransaction.Recurrence,
-      notes: "",
-    },
+    defaultValues,
   });
 
   const type = watch("type");
@@ -119,7 +146,7 @@ export function RecurringTransactionModal({
   // filtra categorias pelo tipo selecionado (coerente com teu domínio)
   const filteredCategories = useMemo(
     () => (categories ?? []).filter((c) => c.type === type),
-    [categories, type]
+    [categories, type],
   );
 
   const { isPending: isLoadingCreate, mutateAsync: createRecurring } =
@@ -133,7 +160,7 @@ export function RecurringTransactionModal({
           value: Number(form.value),
           type: form.type,
           startDate: form.startDate.toISOString(),
-          endDate: form.endDate.toISOString(),
+          endDate: form.endDate?.toISOString(),
           recurrence: form.recurrence,
           notes: form.notes,
           creditCardId: form.creditCardId,
@@ -142,9 +169,46 @@ export function RecurringTransactionModal({
       },
     });
 
+  const { isPending: isLoadingUpdate, mutateAsync: updateRecurring } =
+    useMutation({
+      mutationFn: async (form: RecurringFormData) => {
+        if (!recurringTransaction?.id) {
+          throw new Error("Recurring transaction id is required to update.");
+        }
+
+        return recurringTransactionsService.update({
+          recurringTransactionId: recurringTransaction.id,
+          entityId: selectedEntityId!,
+          accountId: form.accountId,
+          categoryId: form.categoryId,
+          name: form.name,
+          value: Number(form.value),
+          type: form.type,
+          startDate: form.startDate.toISOString(),
+          endDate: form.endDate?.toISOString(),
+          recurrence: form.recurrence,
+          notes: form.notes,
+          creditCardId: form.creditCardId,
+          contactId: form.contactId,
+        });
+      },
+    });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    reset(defaultValues);
+    setHasEndDate(Boolean(defaultValues.endDate));
+  }, [defaultValues, isOpen, reset]);
+
   const onSubmit = handleSubmit(async (data) => {
     try {
-      await createRecurring(data);
+      if (action === "update") {
+        await updateRecurring(data);
+        toast.success("Recorrência atualizada com sucesso!");
+      } else {
+        await createRecurring(data);
+        toast.success("Recorrência criada com sucesso!");
+      }
 
       // invalida listas relevantes (ajuste se tiver outras keys)
       queryClient.invalidateQueries({
@@ -153,7 +217,6 @@ export function RecurringTransactionModal({
       queryClient.invalidateQueries({ queryKey: [QueryKeys.TRANSACTIONS] });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.DASHBOARD] });
 
-      toast.success("Recorrência criada com sucesso!");
       onClose();
     } catch (err) {
       treatAxiosError(err as AxiosError);
@@ -164,7 +227,11 @@ export function RecurringTransactionModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nova transação recorrente</DialogTitle>
+          <DialogTitle>
+            {action === "update"
+              ? "Editar transação recorrente"
+              : "Nova transação recorrente"}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
@@ -212,8 +279,12 @@ export function RecurringTransactionModal({
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INCOME">Receita</SelectItem>
-                      <SelectItem value="EXPENSE">Despesa</SelectItem>
+                      <SelectItem value={Transaction.Type.INCOME}>
+                        Receita
+                      </SelectItem>
+                      <SelectItem value={Transaction.Type.EXPENSE}>
+                        Despesa
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -297,10 +368,24 @@ export function RecurringTransactionModal({
                       <SelectValue placeholder="Recorrência" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DAILY">Diária</SelectItem>
-                      <SelectItem value="WEEKLY">Semanal</SelectItem>
-                      <SelectItem value="MONTHLY">Mensal</SelectItem>
-                      <SelectItem value="YEARLY">Anual</SelectItem>
+                      <SelectItem value={RecurringTransaction.Recurrence.DAILY}>
+                        Diária
+                      </SelectItem>
+                      <SelectItem
+                        value={RecurringTransaction.Recurrence.WEEKLY}
+                      >
+                        Semanal
+                      </SelectItem>
+                      <SelectItem
+                        value={RecurringTransaction.Recurrence.MONTHLY}
+                      >
+                        Mensal
+                      </SelectItem>
+                      <SelectItem
+                        value={RecurringTransaction.Recurrence.YEARLY}
+                      >
+                        Anual
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -330,18 +415,44 @@ export function RecurringTransactionModal({
               />
             </div>
             <div className="space-y-2">
-              <Label>Término</Label>
-              <Controller
-                control={control}
-                name="endDate"
-                render={({ field: { onChange, value } }) => (
-                  <DatePickerInput
-                    value={new Date(value)}
-                    onChange={onChange}
-                    error={errors.endDate?.message}
-                  />
-                )}
-              />
+              <div className="flex items-center justify-between">
+                <Label>Término</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setHasEndDate((prev) => {
+                      const next = !prev;
+                      if (!next) {
+                        setValue("endDate", undefined);
+                      } else {
+                        setValue("endDate", new Date());
+                      }
+                      return next;
+                    });
+                  }}
+                >
+                  {hasEndDate ? "Remover término" : "Definir término"}
+                </Button>
+              </div>
+              {hasEndDate ? (
+                <Controller
+                  control={control}
+                  name="endDate"
+                  render={({ field: { onChange, value } }) => (
+                    <DatePickerInput
+                      value={value ? new Date(value) : new Date()}
+                      onChange={onChange}
+                      error={errors.endDate?.message}
+                    />
+                  )}
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Sem data de término.
+                </div>
+              )}
             </div>
           </div>
 
@@ -411,10 +522,12 @@ export function RecurringTransactionModal({
             </Button>
             <Button
               type="submit"
-              isLoading={isLoadingCreate}
+              isLoading={
+                action === "update" ? isLoadingUpdate : isLoadingCreate
+              }
               className="flex-1"
             >
-              Salvar
+              {action === "update" ? "Atualizar" : "Salvar"}
             </Button>
           </div>
         </form>
