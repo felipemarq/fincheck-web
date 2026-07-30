@@ -21,7 +21,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <ThemeProvider storageKey="vite-ui-theme">
         <ErrorBoundary fallback={<ErrorBoundaryFallback />}>
           <AuthProvider>
             <div className=" w-full h-full flex flex-col">

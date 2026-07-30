@@ -1,7 +1,6 @@
 import { useLocation } from "react-router-dom";
 
 import { useAuth } from "@/app/hooks/useAuth";
-import { ModeToggle } from "@/view/components/ui/mode-toggle";
 import { Separator } from "@/view/components/ui/separator";
 import { SidebarTrigger } from "@/view/components/ui/sidebar";
 
@@ -94,7 +93,6 @@ export function SiteHeader() {
               </span>
             </div>
           )}
-          <ModeToggle />
         </div>
       </div>
     </header>
