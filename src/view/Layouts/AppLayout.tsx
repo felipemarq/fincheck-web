@@ -19,7 +19,9 @@ export default function AppLayout() {
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <Outlet key={location.key} />
+            <div key={location.key} className="route-stage">
+              <Outlet />
+            </div>
           </div>
         </div>
       </SidebarInset>

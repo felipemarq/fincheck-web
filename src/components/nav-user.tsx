@@ -31,7 +31,6 @@ interface NavUserProps {
 
 export function NavUser({ user, onLogout }: NavUserProps) {
   const { isMobile } = useSidebar();
-  console.log(user);
   return (
     <SidebarMenu>
       <SidebarMenuItem>

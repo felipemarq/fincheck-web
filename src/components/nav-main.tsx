@@ -18,6 +18,10 @@ export function NavMain({
   }[];
 }) {
   const location = useLocation();
+  const isItemActive = (url: string) =>
+    location.pathname === url ||
+    (url !== "/" && location.pathname.startsWith(`${url}/`));
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -45,7 +49,7 @@ export function NavMain({
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 tooltip={item.title}
-                isActive={location.pathname === item.url}
+                isActive={isItemActive(item.url)}
                 asChild
               >
                 <Link to={item.url} className="flex items-center gap-2">

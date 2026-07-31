@@ -4,56 +4,31 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { Separator } from "@/view/components/ui/separator";
 import { SidebarTrigger } from "@/view/components/ui/sidebar";
 
-const ENTITY_TYPE_LABELS = {
-  PF: "Pessoa fisica",
-  PJ: "Pessoa juridica",
-} as const;
-
 const routeMeta = [
   {
-    matcher: (pathname: string) => pathname === "/",
-    title: "Dashboard",
-    description: "Visao geral da entidade ativa.",
+    matcher: (pathname: string) => pathname === "/orders",
+    title: "Ordens de compra",
+    description: "Compromissos comerciais da organizacao ativa.",
   },
   {
-    matcher: (pathname: string) => pathname === "/entities",
-    title: "Entidades",
-    description: "Gestao de estruturas PF e PJ.",
+    matcher: (pathname: string) => pathname === "/orders/new",
+    title: "Nova ordem",
+    description: "Cadastro manual do documento e seus itens.",
   },
   {
-    matcher: (pathname: string) => pathname === "/accounts",
-    title: "Contas",
-    description: "Contas operacionais da entidade ativa.",
+    matcher: (pathname: string) => pathname.endsWith("/edit"),
+    title: "Editar ordem",
+    description: "Atualize o documento e preserve seu historico comercial.",
   },
   {
-    matcher: (pathname: string) => pathname === "/payables",
-    title: "Contas a pagar",
-    description: "Compromissos em aberto da entidade ativa.",
+    matcher: (pathname: string) => pathname.startsWith("/orders/"),
+    title: "Detalhe da ordem",
+    description: "Centro operacional da ordem de compra.",
   },
   {
-    matcher: (pathname: string) => pathname === "/receivables",
-    title: "Contas a receber",
-    description: "Recebimentos em aberto da entidade ativa.",
-  },
-  {
-    matcher: (pathname: string) => pathname === "/credit-cards",
-    title: "Cartoes",
-    description: "Cartoes vinculados a esta entidade.",
-  },
-  {
-    matcher: (pathname: string) => pathname === "/contacts",
-    title: "Contatos",
-    description: "Clientes, fornecedores e pessoas vinculadas.",
-  },
-  {
-    matcher: (pathname: string) => pathname === "/taxes",
-    title: "Impostos",
-    description: "Configuracao tributaria por entidade.",
-  },
-  {
-    matcher: (pathname: string) => pathname === "/recurring-transactions",
-    title: "Recorrencias",
-    description: "Lancamentos recorrentes da entidade ativa.",
+    matcher: (pathname: string) => pathname === "/customers",
+    title: "Clientes",
+    description: "Unidades compradoras e dados de entrega.",
   },
 ];
 
@@ -88,9 +63,7 @@ export function SiteHeader() {
                 style={{ backgroundColor: activeEntity.color }}
               />
               <span className="font-medium">{activeEntity.name}</span>
-              <span className="text-muted-foreground">
-                {ENTITY_TYPE_LABELS[activeEntity.type]}
-              </span>
+              <span className="text-muted-foreground">Operacao ativa</span>
             </div>
           )}
         </div>

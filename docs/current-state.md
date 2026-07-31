@@ -1,50 +1,64 @@
 # Estado atual do Web
 
-## O que esta funcionando
+## Contexto da branch
 
-- Login e cadastro
-- Solicitacao e confirmacao de recuperacao de senha
-- Recuperacao transparente de sessao por refresh token
-- Carregamento do usuario atual e das entidades
-- Troca de entidade ativa com persistencia local
-- Criacao e edicao de entidades PF/PJ
-- Redirecionamento da entidade nova para o fluxo de configuracao inicial
-- Tela dedicada de gestao de entidades
-- Tela dedicada de gestao de contas
-- Dashboard com dados reais da API
-- Header e estados vazios mais explicitos sobre qual entidade esta ativa
-- Resumo de contas a pagar e contas a receber no dashboard
-- Tela dedicada de contas a pagar
-- Tela dedicada de contas a receber
-- Filtros rapidos por vencidas/hoje/proximos dias
-- Agrupamento operacional por contato
-- Marcacao direta de pago/recebido nas tabelas de pagar/receber
-- Listagem, criacao e edicao de cartoes
-- Listagem, criacao, edicao e exclusao de contatos
-- Configuracao mensal de impostos com integracao ao dashboard
-- Criacao, edicao e exclusao protegida de contas
-- Criacao, edicao e exclusao de transacoes
-- Criacao, edicao e exclusao de recorrencias
+`codex/purchase-orders-v2` e o inicio da nova versao do produto. A navegacao
+principal agora e centrada em ordens de compra e clientes. A experiencia
+financeira anterior nao foi apagada: seu codigo e seu ultimo estado estao
+preservados na branch `codex/entity-onboarding-flow`.
 
-## Correcoes estruturais aplicadas neste pacote
+## Fluxo entregue
 
-- Correcao da rota de exclusao de transacoes para alinhar com a API.
-- Sessao local agora guarda refresh token e tenta renovacao automatica.
-- `baseURL` da API passou a ser configuravel por ambiente.
-- Cache de contas e categorias passou a respeitar a entidade selecionada.
-- Sidebar e seletor de entidade foram ajustados para o dominio real PF/PJ.
-- `lint` voltou a funcionar com uma baseline compativel com o estado atual do projeto.
-- A gestao de contas agora invalida tambem o dashboard para manter os saldos sincronizados.
-- O app passou a persistir o passo de onboarding da entidade para guiar primeira conta e primeira transacao.
+1. o usuario autentica e escolhe a organizacao ativa
+2. cadastra a unidade compradora em `Clientes`
+3. cria uma ordem e transcreve seus dados e itens
+4. consulta a ordem e confere o valor contratado
+5. identifica imediatamente divergencias entre o total oficial e os itens
 
-## Debitos ainda existentes
+## Telas e comportamentos
 
-- Ha bastante codigo de UI herdado de scaffolds e componentes experimentais.
-- O app ainda nao cobre os modulos de relatorios e investimentos.
-- O bundle de producao ainda esta grande e merece uma etapa futura de code splitting.
+- `/orders`: indicadores, busca, filtro de situacao e cards das ordens
+- `/orders/new`: cadastro completo da ordem e de uma ou mais linhas
+- `/orders/:purchaseOrderId`: detalhe comercial e operacional
+- `/orders/:purchaseOrderId/edit`: edicao do cabecalho e dos itens
+- `/customers`: busca, cadastro e edicao de clientes
+- sidebar reduzida aos modulos atuais da V2
+- organizacao ativa explicita em todas as telas privadas
+- dark theme unico e layout responsivo
 
-## Proximo passo recomendado
+## Integracao com a API
 
-1. abrir o modulo de relatorios por entidade
-2. aprofundar visoes gerenciais por categoria e contato
-3. ligar investimentos aos endpoints ja disponiveis no backend
+Todas as consultas sao delimitadas pela organizacao ativa:
+
+- `GET|POST /entities/{entityId}/customers`
+- `PATCH /entities/{entityId}/customers/{customerId}`
+- `GET|POST /entities/{entityId}/purchase-orders`
+- `GET|PATCH /entities/{entityId}/purchase-orders/{purchaseOrderId}`
+
+O frontend preserva os campos opcionais, os snapshots de endereco e o total
+oficial retornado pela API. O valor calculado dos itens e exibido
+separadamente quando houver divergencia.
+
+## Fora desta entrega
+
+- registro das aquisicoes dos itens
+- controle de chegada e estoque excedente
+- entregas totais e parciais
+- anexos e notas fiscais
+- faturamento e recebimento do cliente
+- custos de frete, impostos e margem
+- importacao automatica de PDF
+
+## Debitos conhecidos
+
+- o bundle principal ainda e grande e pede code splitting futuro
+- os componentes e modulos legados continuam no repositorio, embora fora das
+  rotas da V2
+- ainda nao ha uma suite automatizada de componentes no frontend
+
+## Proxima fatia recomendada
+
+Modelar aquisicoes vinculadas aos itens da ordem, permitindo registrar
+fornecedor, quantidade comprada, custo, forma de pagamento, comprador e
+previsao de chegada. Essa fatia deve atualizar o progresso da ordem sem tratar
+excedentes como estoque no MVP.

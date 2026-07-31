@@ -8,8 +8,6 @@ interface AuthGuardProps {
 export const AuthGuard = ({ isPrivate }: AuthGuardProps) => {
   // Obtém o estado de autenticação do contexto
   const { signedIn } = useAuth();
-  console.log({ signedIn });
-
   if (!signedIn && isPrivate) {
     return <Navigate to="/login" replace />;
   }

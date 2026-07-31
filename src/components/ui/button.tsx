@@ -54,20 +54,33 @@ function Button({
   children,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot : "button";
+  const buttonClassName = cn(buttonVariants({ variant, size, className }));
+
+  if (asChild) {
+    return (
+      <Slot
+        data-slot="button"
+        aria-disabled={disabled || isLoading || undefined}
+        className={buttonClassName}
+        {...props}
+      >
+        {children}
+      </Slot>
+    );
+  }
 
   return (
-    <Comp
+    <button
       data-slot="button"
       disabled={disabled || isLoading}
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={buttonClassName}
       {...props}
     >
       {isLoading && (
         <Spinner className="w-4 h-4 animate-spin text-primary-foreground" />
       )}
       {children}
-    </Comp>
+    </button>
   );
 }
 

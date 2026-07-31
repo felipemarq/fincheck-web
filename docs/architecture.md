@@ -2,53 +2,70 @@
 
 ## Visao geral
 
-O frontend esta organizado em tres blocos principais:
+O frontend mantem a separacao em tres blocos:
 
-- `app`: estado, hooks e integracao com API
-- `view`: paginas, layouts, tabelas e modais
+- `app`: entidades, hooks, cache e integracao HTTP
+- `view`: paginas, layouts e modais orientados aos fluxos
 - `components`: shell da aplicacao e componentes compartilhados
 
-## Fluxo de autenticacao
+As telas consomem tipos de dominio de `src/app/entities`, chamam a API por
+servicos pequenos em `src/app/services` e coordenam cache e mutacoes por hooks
+do TanStack Query.
 
-1. Login, cadastro e recuperacao de senha chamam os endpoints de auth da API.
-2. `AuthContext` persiste `accessToken`, `refreshToken` e entidade selecionada.
-3. O contexto tambem persiste o estado de onboarding da entidade recem-criada.
-4. O `httpClient` envia o token no header `Authorization`.
-5. Em `401`, o cliente tenta renovar a sessao via `/auth/refresh-token`.
-6. Se a renovacao falhar, a sessao local e limpa e o usuario volta para `/login`.
+## Autenticacao e organizacao ativa
 
-## Roteamento
+1. login, cadastro e recuperacao de senha chamam os endpoints de autenticacao
+2. `AuthContext` persiste `accessToken`, `refreshToken` e organizacao ativa
+3. o cliente HTTP envia o token no header `Authorization`
+4. em `401`, tenta renovar a sessao por `/auth/refresh-token`
+5. se a renovacao falhar, limpa a sessao e redireciona para `/login`
 
-Hoje o app expoe as seguintes areas privadas:
+A entidade existente no backend representa a organizacao operacional. Seu ID
+delimita clientes, ordens e todos os modulos futuros da V2.
 
-- `/`: dashboard
-- `/entities`: gestao de entidades
-- `/accounts`: gestao de contas
-- `/payables`: contas a pagar
-- `/receivables`: contas a receber
-- `/credit-cards`: cartoes
-- `/contacts`: contatos
-- `/taxes`: impostos
-- `/recurring-transactions`: gestao de recorrencias
+## Roteamento atual
 
-As rotas publicas ficam em:
+Rotas publicas:
 
 - `/login`
 - `/register`
 - `/forgot-password`
 - `/reset-password`
 
+Rotas privadas da V2:
+
+- `/orders`
+- `/orders/new`
+- `/orders/:purchaseOrderId`
+- `/orders/:purchaseOrderId/edit`
+- `/customers`
+
+`/` redireciona para `/orders`. Os modulos financeiros anteriores continuam
+no historico Git e na branch legada, mas nao participam da navegacao V2.
+
 ## Estado e cache
 
-- TanStack Query centraliza fetch e cache.
-- As queries de contas e categorias sao escopadas por `entityId`.
-- A entidade ativa fica no contexto e tambem no `localStorage`.
-- O onboarding da entidade tambem fica em `localStorage`, permitindo retomar o passo de primeira conta ou primeira transacao.
-- A gestao de contas invalida tambem o dashboard para manter os saldos consolidados sincronizados depois de criar, editar ou excluir contas.
+- TanStack Query centraliza consultas, mutacoes e invalidacao
+- chaves de clientes e ordens incluem o `entityId`
+- trocar a organizacao ativa troca automaticamente o conjunto de dados
+- formularios usam React Hook Form e Zod
+- a API e a fonte de verdade para totais calculados e progresso operacional
 
 ## Integracao com a API
 
-- A URL base fica em `VITE_API_URL`.
-- O dashboard usa a secao `balances` para consolidar saldos por conta e a secao `settlements` para resumir contas a pagar e contas a receber.
-- O frontend consome os endpoints ja consolidados de auth, contas, categorias, cartoes, contatos, impostos, transacoes, recorrencias, entidades e dashboard.
-- As telas de pagar/receber reutilizam `GET /transactions` com filtros por vencimento e contato, e `PATCH /transactions/{transactionId}` para liquidar itens diretamente da tabela.
+- `VITE_API_URL` define a URL base
+- todas as rotas privadas incluem o `entityId` no caminho
+- o detalhe da ordem retorna cabecalho, snapshot do cliente e itens
+- criacao e edicao enviam a ordem e seus itens em uma unica operacao
+- campos opcionais podem ser limpos explicitamente na edicao
+
+## Evolucao da V2
+
+Os proximos modulos devem se conectar a `PurchaseOrderItem`, sem criar um
+controle financeiro generico paralelo. A sequencia prevista e:
+
+1. aquisicoes e previsao de chegada
+2. recebimento dos produtos
+3. entregas totais e parciais
+4. faturamento e recebimento do cliente
+5. custos, impostos e margem da ordem

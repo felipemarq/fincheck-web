@@ -1,16 +1,7 @@
 import * as React from "react";
 import {
-  IconBuildingBank,
-  IconChartBar,
-  IconDashboard,
-  IconFolder,
-  IconListDetails,
-  IconRepeat,
-  IconReceipt2,
-  IconTrendingDown,
-  IconTrendingUp,
+  IconClipboardList,
   IconUsers,
-  IconWallet,
 } from "@tabler/icons-react";
 import { Building, SquareUser } from "lucide-react";
 
@@ -33,58 +24,13 @@ import { EntitySwitcher } from "./entity-switcher";
 
 const navMain = [
   {
-    title: "Dashboard",
-    url: "/",
-    icon: IconDashboard,
+    title: "Ordens de compra",
+    url: "/orders",
+    icon: IconClipboardList,
   },
   {
-    title: "Entidades",
-    url: "/entities",
-    icon: IconBuildingBank,
-  },
-  {
-    title: "Contas",
-    url: "/accounts",
-    icon: IconWallet,
-  },
-  {
-    title: "Contas a pagar",
-    url: "/payables",
-    icon: IconTrendingDown,
-  },
-  {
-    title: "Contas a receber",
-    url: "/receivables",
-    icon: IconTrendingUp,
-  },
-  {
-    title: "Recorrências",
-    url: "/recurring-transactions",
-    icon: IconRepeat,
-  },
-  {
-    title: "Cartões",
-    url: "/credit-cards",
-    icon: IconChartBar,
-  },
-  {
-    title: "Impostos",
-    url: "/taxes",
-    icon: IconReceipt2,
-  },
-  {
-    title: "Relatórios (em desenvolvimento)",
-    url: "#",
-    icon: IconListDetails,
-  },
-  {
-    title: "Investimentos (em desenvolvimento)",
-    url: "#",
-    icon: IconFolder,
-  },
-  {
-    title: "Contatos",
-    url: "/contacts",
+    title: "Clientes",
+    url: "/customers",
     icon: IconUsers,
   },
 ];
@@ -125,7 +71,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem>
               <div className="mt-4 space-y-2 px-2">
                 <div className="text-sidebar-foreground/70 text-xs font-medium uppercase tracking-wide">
-                  Entidade ativa
+                  Organizacao ativa
                 </div>
                 <EntitySwitcher
                   entities={entities}

@@ -1,65 +1,71 @@
 # Fincheck Web
 
-Frontend web do Fincheck. A aplicacao consome a Fincheck API, gerencia a sessao do usuario, mantem o contexto da entidade ativa e entrega a experiencia de dashboard e gestao financeira no navegador.
+Frontend web da nova operacao de ordens de compra. Esta branch inicia a V2 do
+produto, simplificada em torno do fluxo real da empresa: receber uma ordem de
+um cliente, registrar seus itens e acompanhar as proximas etapas operacionais.
+
+O sistema financeiro anterior continua preservado na branch
+`codex/entity-onboarding-flow`.
+
+## Primeira entrega da V2
+
+- autenticacao e recuperacao de sessao existentes
+- selecao da organizacao ativa
+- cadastro e edicao de clientes
+- listagem e filtros de ordens de compra
+- cadastro e edicao da ordem com seus itens
+- detalhe operacional da ordem
+- preservacao do total oficial do documento
+- alerta quando o total oficial diverge da soma dos itens
+- interface dark responsiva para desktop e celular
+
+Compras, recebimentos, entregas, faturamento e margem ainda nao fazem parte
+desta primeira fatia. Eles serao acrescentados sobre a ordem e os itens ja
+modelados, sem reintroduzir os modulos financeiros genericos da versao
+anterior.
 
 ## Stack
 
-- React 19
-- TypeScript
+- React 19 e TypeScript
 - Vite
 - TanStack Query
-- React Hook Form
+- React Hook Form e Zod
 - Radix UI
 - Tailwind CSS
 
-## O que existe hoje
-
-- Login e cadastro
-- Recuperacao de senha
-- Sessao autenticada com refresh token automatico
-- Selecao de entidade ativa
-- Gestao de entidades PF/PJ com criacao, edicao e troca pela sidebar
-- Onboarding operacional para entidade nova, guiando da criacao ate a primeira conta e a primeira transacao
-- Gestao dedicada de contas bancarias, caixa e investimento
-- Dashboard
-- Contas a pagar
-- Contas a receber
-- Filtros rapidos de vencimento e agrupamento por contato em pagar/receber
-- Cartoes de credito
-- Contatos
-- Configuracao de impostos mensais
-- CRUD de contas
-- CRUD de transacoes
-- CRUD de transacoes recorrentes
-
-## O que ainda esta em construcao
-
-- Relatorios
-- Investimentos
-
 ## Estrutura principal
 
-- `src/app`: entidades, hooks, config e servicos HTTP
-- `src/view`: paginas, modais, layouts e componentes da aplicacao
-- `src/components`: componentes compartilhados e shell visual
-- `docs/`: documentacao do estado atual do frontend
+- `src/app/entities`: contratos de dominio usados pelo frontend
+- `src/app/services`: integracao HTTP com a API
+- `src/app/hooks`: consultas e mutacoes da aplicacao
+- `src/view/pages`: fluxos e telas
+- `src/view/modals`: formularios em dialogo
+- `src/components`: shell e componentes compartilhados
+- `docs`: arquitetura e estado funcional
 
 ## Ambiente
 
-Use o `.env.example` como base:
+Copie as variaveis documentadas em `.env.example` para um arquivo local:
 
-- `VITE_API_URL`
+```env
+VITE_API_URL=http://localhost:3000
+```
 
-Se a variavel nao for definida, o app usa `https://api.moneystack.com.br` como fallback.
+Sem `VITE_API_URL`, o app usa `https://api.moneystack.com.br`. Para trabalhar
+na V2 localmente, a API deve estar na mesma branch e com o banco criado a
+partir da nova migration baseline.
 
-## Scripts
+## Comandos
 
-- `pnpm dev`
-- `pnpm build`
-- `pnpm typecheck`
-- `pnpm lint`
+```bash
+pnpm install
+pnpm dev
+pnpm typecheck
+pnpm lint
+pnpm build
+```
 
 ## Documentacao
 
 - [Arquitetura](./docs/architecture.md)
-- [Estado atual](./docs/current-state.md)
+- [Estado atual da V2](./docs/current-state.md)
