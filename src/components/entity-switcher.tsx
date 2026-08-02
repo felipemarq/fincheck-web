@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { ChevronDown, PencilLine, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -29,7 +28,6 @@ interface EntitySwitcherProps {
   activeEntityId?: string;
   onCreateEntity?: () => void;
   onEditActiveEntity?: () => void;
-  manageHref?: string;
 }
 
 const ENTITY_TYPE_LABELS: Record<Entity["type"], string> = {
@@ -43,7 +41,6 @@ export function EntitySwitcher({
   activeEntityId,
   onCreateEntity,
   onEditActiveEntity,
-  manageHref = "/entities",
 }: EntitySwitcherProps) {
   const activeEntity = React.useMemo(
     () => entities.find((entity) => entity.id === activeEntityId) ?? entities[0],
@@ -51,7 +48,27 @@ export function EntitySwitcher({
   );
 
   if (!activeEntity) {
-    return null;
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            className="h-auto w-full justify-start gap-2 px-2 py-2"
+            onClick={onCreateEntity}
+            disabled={!onCreateEntity}
+          >
+            <div className="bg-background flex size-8 items-center justify-center rounded-md border">
+              <Plus className="size-4" />
+            </div>
+            <div className="min-w-0 text-left">
+              <div className="font-medium">Criar organizacao</div>
+              <div className="text-sidebar-foreground/70 truncate text-xs">
+                Configure a primeira entidade
+              </div>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
   }
 
   return (
@@ -127,14 +144,6 @@ export function EntitySwitcher({
                 <Plus className="size-4" />
               </div>
               <div className="font-medium">Nova entidade</div>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="gap-2 p-2">
-              <Link to={manageHref}>
-                <div className="bg-background flex size-6 items-center justify-center rounded-md border">
-                  <activeEntity.logo className="size-4" />
-                </div>
-                <div className="font-medium">Gerenciar entidades</div>
-              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
