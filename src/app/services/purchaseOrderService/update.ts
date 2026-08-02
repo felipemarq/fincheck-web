@@ -4,7 +4,11 @@ import type {
 } from "@/app/entities/PurchaseOrder";
 import { httpClient } from "../httpClient";
 
-export type UpdatePurchaseOrderParams = PurchaseOrderInput & {
+export type UpdatePurchaseOrderParams = Omit<
+  PurchaseOrderInput,
+  "items"
+> & {
+  items?: PurchaseOrderInput["items"];
   entityId: string;
   purchaseOrderId: string;
 };

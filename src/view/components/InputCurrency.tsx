@@ -7,6 +7,8 @@ interface InputCurrencyProps {
   value: number; // valor em reais (ex: 1.23)
   onChange?(value: number): void; // devolve number em reais
   allowNegative?: boolean;
+  disabled?: boolean;
+  variant?: "prominent" | "field";
 }
 
 function onlyDigits(s: string) {
@@ -46,6 +48,8 @@ export const InputCurrency = ({
   value,
   onChange,
   allowNegative = false,
+  disabled = false,
+  variant = "prominent",
 }: InputCurrencyProps) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -139,17 +143,27 @@ export const InputCurrency = ({
   };
 
   return (
-    <div>
+    <div className="relative">
+      {variant === "field" && (
+        <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center text-sm text-muted-foreground">
+          R$
+        </span>
+      )}
       <input
         ref={inputRef}
         inputMode="numeric"
         value={displayValue}
+        disabled={disabled}
+        onChange={() => undefined}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
         onFocus={moveCaretToEnd}
         onClick={moveCaretToEnd}
         className={cn(
-          "w-full text-[32px] text-white font-bold tracking-[-1px] outline-none bg-transparent",
+          variant === "prominent" &&
+            "w-full bg-transparent text-[32px] font-bold tracking-[-1px] text-white outline-none",
+          variant === "field" &&
+            "border-input dark:bg-input/30 flex h-9 w-full min-w-0 rounded-md border bg-transparent py-1 pl-10 pr-3 text-base shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           error && "text-red-500",
         )}
         aria-invalid={!!error}

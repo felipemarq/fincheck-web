@@ -9,6 +9,8 @@ import Customers from "@/view/pages/Customers";
 import PurchaseOrders from "@/view/pages/PurchaseOrders";
 import PurchaseOrderDetails from "@/view/pages/PurchaseOrders/Details";
 import PurchaseOrderForm from "@/view/pages/PurchaseOrders/Form";
+import OperationsDashboardPage from "@/view/pages/OperationsDashboard";
+import Products from "@/view/pages/Products";
 
 const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
@@ -33,7 +35,8 @@ export const Router = () => {
 
           <Route element={<AuthGuard isPrivate={true} />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<Navigate to="/orders" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<OperationsDashboardPage />} />
               <Route path="/orders" element={<PurchaseOrders />} />
               <Route path="/orders/new" element={<PurchaseOrderForm />} />
               <Route
@@ -45,6 +48,7 @@ export const Router = () => {
                 element={<PurchaseOrderForm />}
               />
               <Route path="/customers" element={<Customers />} />
+              <Route path="/products" element={<Products />} />
             </Route>
           </Route>
         </Routes>

@@ -2,7 +2,24 @@ export type PurchaseOrderLifecycleStatus = "DRAFT" | "ACTIVE" | "CANCELLED";
 export type PurchaseOrderProgress =
   | "DRAFT"
   | "CANCELLED"
-  | "PENDING_PURCHASE";
+  | "PENDING_PURCHASE"
+  | "PARTIALLY_PURCHASED"
+  | "PURCHASED"
+  | "PARTIALLY_RECEIVED"
+  | "READY_FOR_DELIVERY"
+  | "IN_DELIVERY"
+  | "PARTIALLY_DELIVERED"
+  | "DELIVERED";
+
+export type PurchaseOrderItemProgress =
+  | "PENDING_PURCHASE"
+  | "PARTIALLY_PURCHASED"
+  | "PURCHASED_AWAITING_ARRIVAL"
+  | "PARTIALLY_RECEIVED"
+  | "RECEIVED_AWAITING_DELIVERY"
+  | "IN_DELIVERY"
+  | "PARTIALLY_DELIVERED"
+  | "DELIVERED";
 
 export type PurchaseOrderCustomer = {
   id: string;
@@ -14,6 +31,7 @@ export type PurchaseOrderCustomer = {
 
 export type PurchaseOrderItem = {
   id?: string;
+  productId: string;
   lineNumber: number;
   description: string;
   brand: string;
@@ -25,10 +43,17 @@ export type PurchaseOrderItem = {
   officialTotal: number;
   notes?: string;
   acquiredQuantity: number;
+  purchasePendingQuantity: number;
   receivedQuantity: number;
+  receiptPendingQuantity: number;
+  committedDeliveryQuantity: number;
+  availableForDeliveryQuantity: number;
   deliveredQuantity: number;
+  deliveryPendingQuantity: number;
+  invoicedQuantity: number;
+  invoicePendingQuantity: number;
   excessQuantity: number;
-  progress: PurchaseOrderProgress;
+  progress: PurchaseOrderItemProgress;
 };
 
 export type PurchaseOrderSummary = {
@@ -53,6 +78,18 @@ export type PurchaseOrderSummary = {
   lifecycleStatus: PurchaseOrderLifecycleStatus;
   progress: PurchaseOrderProgress;
   itemCount: number;
+  acquisitionCount: number;
+  knownAcquisitionCost: number;
+  deliveryCount: number;
+  deliveryCost: number;
+  invoiceCount: number;
+  invoicedRevenue: number;
+  taxCost: number;
+  otherDeductions: number;
+  receivedRevenue: number;
+  receivableBalance: number;
+  projectedMargin: number;
+  invoicedMargin: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -63,6 +100,7 @@ export type PurchaseOrder = PurchaseOrderSummary & {
 
 export type PurchaseOrderItemInput = {
   id?: string;
+  productId: string;
   lineNumber: number;
   description: string;
   brand: string;

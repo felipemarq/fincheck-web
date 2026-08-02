@@ -1,5 +1,6 @@
 import type {
   PurchaseOrderLifecycleStatus,
+  PurchaseOrderItemProgress,
   PurchaseOrderProgress,
 } from "@/app/entities/PurchaseOrder";
 
@@ -12,10 +13,22 @@ export const lifecycleLabels: Record<
   CANCELLED: "Cancelada",
 };
 
-export const progressLabels: Record<PurchaseOrderProgress, string> = {
+export const progressLabels: Record<
+  PurchaseOrderProgress | PurchaseOrderItemProgress,
+  string
+> = {
   DRAFT: "Rascunho",
   CANCELLED: "Cancelada",
   PENDING_PURCHASE: "Compra pendente",
+  PARTIALLY_PURCHASED: "Compra parcial",
+  PURCHASED: "Compra concluida",
+  PURCHASED_AWAITING_ARRIVAL: "Comprado, aguardando chegada",
+  PARTIALLY_RECEIVED: "Recebimento parcial",
+  READY_FOR_DELIVERY: "Pronta para entrega",
+  RECEIVED_AWAITING_DELIVERY: "Recebido, aguardando entrega",
+  IN_DELIVERY: "Em entrega",
+  PARTIALLY_DELIVERED: "Entrega parcial",
+  DELIVERED: "Entregue",
 };
 
 export function formatCurrency(value: number) {

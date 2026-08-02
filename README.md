@@ -1,28 +1,38 @@
 # Fincheck Web
 
 Frontend web da nova operacao de ordens de compra. Esta branch inicia a V2 do
-produto, simplificada em torno do fluxo real da empresa: receber uma ordem de
-um cliente, registrar seus itens e acompanhar as proximas etapas operacionais.
+produto, simplificada em torno do fluxo real da empresa: receber uma ordem,
+comprar, conferir chegadas, entregar, faturar e acompanhar o pagamento.
 
-O sistema financeiro anterior continua preservado na branch
+O codigo da experiencia financeira anterior foi removido desta branch e
+continua preservado no historico Git e na branch
 `codex/entity-onboarding-flow`.
 
-## Primeira entrega da V2
+## Fluxo atual da V2
 
 - autenticacao e recuperacao de sessao existentes
 - selecao da organizacao ativa
+- criacao de organizacao com encaminhamento para o primeiro produto
 - cadastro e edicao de clientes
+- catalogo de produtos com busca, edicao, inativacao e precos de referencia
 - listagem e filtros de ordens de compra
-- cadastro e edicao da ordem com seus itens
+- cadastro e edicao da ordem com selecao de produtos e cadastro rapido
 - detalhe operacional da ordem
+- registro e edicao de aquisicoes
+- varias compras atendendo o mesmo item da ordem
+- chegadas totais e parciais por aquisicao
+- entregas totais e parciais por lote
+- notas fiscais por item entregue
+- recebimentos parciais e saldo por nota
+- quantidades compradas, recebidas, entregues e faturadas
+- custos, impostos, deducoes e margens
+- dashboard com filas operacionais e contas vencidas
 - preservacao do total oficial do documento
 - alerta quando o total oficial diverge da soma dos itens
 - interface dark responsiva para desktop e celular
 
-Compras, recebimentos, entregas, faturamento e margem ainda nao fazem parte
-desta primeira fatia. Eles serao acrescentados sobre a ordem e os itens ja
-modelados, sem reintroduzir os modulos financeiros genericos da versao
-anterior.
+Anexos, OCR/importacao de PDF, estoque reutilizavel entre ordens, conciliacao
+bancaria e relatorios avancados permanecem como evolucoes pos-MVP.
 
 ## Stack
 
@@ -53,7 +63,11 @@ VITE_API_URL=http://localhost:3000
 
 Sem `VITE_API_URL`, o app usa `https://api.moneystack.com.br`. Para trabalhar
 na V2 localmente, a API deve estar na mesma branch e com o banco criado a
-partir da nova migration baseline.
+partir das migracoes da V2, incluindo `0003_product-catalog.sql`.
+
+O servidor de desenvolvimento usa `http://localhost:5173` com porta estrita.
+Se a porta estiver ocupada, encerre a instancia anterior antes de executar
+`pnpm dev` novamente.
 
 ## Comandos
 

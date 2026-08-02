@@ -1,7 +1,9 @@
 import * as React from "react";
 import {
+  IconLayoutDashboard,
   IconClipboardList,
   IconUsers,
+  IconBox,
 } from "@tabler/icons-react";
 import { Building, SquareUser } from "lucide-react";
 
@@ -24,6 +26,11 @@ import { EntitySwitcher } from "./entity-switcher";
 
 const navMain = [
   {
+    title: "Painel",
+    url: "/dashboard",
+    icon: IconLayoutDashboard,
+  },
+  {
     title: "Ordens de compra",
     url: "/orders",
     icon: IconClipboardList,
@@ -32,6 +39,11 @@ const navMain = [
     title: "Clientes",
     url: "/customers",
     icon: IconUsers,
+  },
+  {
+    title: "Produtos",
+    url: "/products",
+    icon: IconBox,
   },
 ];
 

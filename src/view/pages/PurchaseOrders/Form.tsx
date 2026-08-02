@@ -4,20 +4,23 @@ import {
   IconArrowLeft,
   IconCalculator,
   IconDeviceFloppy,
+  IconPackageImport,
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { QueryKeys } from "@/app/config/QueryKeys";
+import type { Product } from "@/app/entities/Product";
 import type { PurchaseOrderInput } from "@/app/entities/PurchaseOrder";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useCustomers } from "@/app/hooks/useCustomers";
 import { usePurchaseOrder } from "@/app/hooks/usePurchaseOrder";
+import { useProducts } from "@/app/hooks/useProducts";
 import { purchaseOrderService } from "@/app/services/purchaseOrderService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
 import { Button } from "@/components/ui/button";
@@ -38,10 +41,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { InputCurrency } from "@/view/components/InputCurrency";
+import { ProductModal } from "@/view/modals/ProductModal";
 import { formatCurrency } from "./purchaseOrderPresentation";
 
 const itemSchema = z.object({
   id: z.string().optional(),
+  productId: z.string().min(1, "Selecione um produto."),
   lineNumber: z.number().int().positive("Use uma linha maior que zero."),
   description: z.string().trim().min(1, "Informe a descricao.").max(4000),
   brand: z.string().trim().min(1, "Informe a marca.").max(120),
@@ -93,7 +99,42 @@ const orderSchema = z
 
 type OrderFormData = z.infer<typeof orderSchema>;
 
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function calculateLineTotal(
+  item: Pick<
+    OrderFormData["items"][number],
+    "orderedQuantity" | "saleUnitPrice"
+  >
+) {
+  return roundMoney(
+    (Number(item.orderedQuantity) || 0) * (Number(item.saleUnitPrice) || 0)
+  );
+}
+
+function resolveLineTotal(item: OrderFormData["items"][number]) {
+  const officialTotal = Number(item.officialTotal) || 0;
+  const calculatedTotal = calculateLineTotal(item);
+
+  return officialTotal === 0 && calculatedTotal > 0
+    ? calculatedTotal
+    : officialTotal;
+}
+
+function calculateItemsTotal(items: OrderFormData["items"]) {
+  const totalInCents = items.reduce(
+    (total, item) =>
+      total + Math.round((Number(item.officialTotal) || 0) * 100),
+    0
+  );
+
+  return totalInCents / 100;
+}
+
 const newItem = (lineNumber: number): OrderFormData["items"][number] => ({
+  productId: "",
   lineNumber,
   description: "",
   brand: "",
@@ -148,6 +189,13 @@ export default function PurchaseOrderForm() {
   const queryClient = useQueryClient();
   const { selectedEntityId } = useAuth();
   const initializedOrderId = useRef<string | null>(null);
+  const previousCalculatedItemsTotal = useRef(0);
+  const [quickProductItemIndex, setQuickProductItemIndex] = useState<
+    number | null
+  >(null);
+  const [quickCreatedProducts, setQuickCreatedProducts] = useState<Product[]>(
+    []
+  );
 
   const { customers, isFetchingCustomers } = useCustomers(
     {
@@ -156,6 +204,18 @@ export default function PurchaseOrderForm() {
     Boolean(selectedEntityId)
   );
   const activeCustomers = customers?.filter((customer) => customer.active);
+
+  const { products, isFetchingProducts } = useProducts(
+    { entityId: selectedEntityId ?? "" },
+    Boolean(selectedEntityId)
+  );
+  const availableProducts = [
+    ...quickCreatedProducts,
+    ...(products?.filter(
+      (product) =>
+        !quickCreatedProducts.some((created) => created.id === product.id)
+    ) ?? []),
+  ];
 
   const { order, isFetchingOrder } = usePurchaseOrder(
     {
@@ -166,7 +226,9 @@ export default function PurchaseOrderForm() {
   );
 
   const {
+    clearErrors,
     control,
+    getValues,
     handleSubmit,
     register,
     reset,
@@ -188,47 +250,109 @@ export default function PurchaseOrderForm() {
       return;
     }
 
+    const normalizedItems = order.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      lineNumber: item.lineNumber,
+      description: item.description,
+      brand: item.brand,
+      specification: item.specification ?? "",
+      originalUnit: item.originalUnit,
+      normalizedUnit: item.normalizedUnit,
+      orderedQuantity: item.orderedQuantity,
+      saleUnitPrice: item.saleUnitPrice,
+      officialTotal: resolveLineTotal({
+        ...item,
+        specification: item.specification ?? "",
+        notes: item.notes ?? "",
+      }),
+      notes: item.notes ?? "",
+    }));
+    const normalizedItemsTotal = calculateItemsTotal(normalizedItems);
+
+    previousCalculatedItemsTotal.current = normalizedItemsTotal;
     reset({
-      customerId: order.customerId,
+      customerId: order.customerId || order.customer.id,
       orderNumber: order.orderNumber,
       externalNumber: order.externalNumber ?? "",
       quoteNumber: order.quoteNumber ?? "",
       requisitionNumber: order.requisitionNumber ?? "",
       issuedAt: toDateInput(order.issuedAt),
       requestedDeliveryAt: toDateInput(order.requestedDeliveryAt),
-      officialTotal: order.officialTotal,
+      officialTotal:
+        order.officialTotal === 0 && normalizedItemsTotal > 0
+          ? normalizedItemsTotal
+          : order.officialTotal,
       paymentTerms: order.paymentTerms ?? "",
       instructions: order.instructions ?? "",
       notes: order.notes ?? "",
       billingAddress: order.billingAddress ?? "",
       deliveryAddress: order.deliveryAddress ?? "",
       lifecycleStatus: order.lifecycleStatus,
-      items: order.items.map((item) => ({
-        id: item.id,
-        lineNumber: item.lineNumber,
-        description: item.description,
-        brand: item.brand,
-        specification: item.specification ?? "",
-        originalUnit: item.originalUnit,
-        normalizedUnit: item.normalizedUnit,
-        orderedQuantity: item.orderedQuantity,
-        saleUnitPrice: item.saleUnitPrice,
-        officialTotal: item.officialTotal,
-        notes: item.notes ?? "",
-      })),
+      items: normalizedItems,
     });
     initializedOrderId.current = order.id;
   }, [order, reset]);
 
+  useEffect(() => {
+    if (!order) {
+      return;
+    }
+
+    const customerId = order.customerId || order.customer.id;
+    if (getValues("customerId") !== customerId) {
+      setValue("customerId", customerId, { shouldValidate: true });
+    }
+    clearErrors("customerId");
+  }, [clearErrors, getValues, order, setValue]);
+
   const watchedItems = watch("items");
-  const calculatedItemsTotal = watchedItems.reduce(
-    (total, item) => total + (Number(item.officialTotal) || 0),
-    0
-  );
+  const calculatedItemsTotal = calculateItemsTotal(watchedItems);
   const officialTotal = watch("officialTotal");
   const hasTotalMismatch =
     Math.round(calculatedItemsTotal * 100) !==
     Math.round((Number(officialTotal) || 0) * 100);
+  const areItemsLocked =
+    isEditing && Boolean(order?.acquisitionCount);
+
+  useEffect(() => {
+    const previousTotal = previousCalculatedItemsTotal.current;
+    const currentOfficialTotal = Number(getValues("officialTotal")) || 0;
+    const orderTotalWasAutomatic =
+      Math.round(currentOfficialTotal * 100) ===
+        Math.round(previousTotal * 100) || currentOfficialTotal === 0;
+
+    if (
+      orderTotalWasAutomatic &&
+      Math.round(currentOfficialTotal * 100) !==
+        Math.round(calculatedItemsTotal * 100)
+    ) {
+      setValue("officialTotal", calculatedItemsTotal, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    previousCalculatedItemsTotal.current = calculatedItemsTotal;
+  }, [calculatedItemsTotal, getValues, setValue]);
+
+  const updateCalculatedItemTotal = (
+    index: number,
+    values: Partial<
+      Pick<
+        OrderFormData["items"][number],
+        "orderedQuantity" | "saleUnitPrice"
+      >
+    >
+  ) => {
+    const item = getValues(`items.${index}`);
+
+    setValue(
+      `items.${index}.officialTotal`,
+      calculateLineTotal({ ...item, ...values }),
+      { shouldDirty: true, shouldValidate: true }
+    );
+  };
 
   const createMutation = useMutation({
     mutationFn: purchaseOrderService.create,
@@ -252,10 +376,70 @@ export default function PurchaseOrderForm() {
     }
   };
 
+  const handleProductChange = (
+    index: number,
+    productId: string,
+    createdProduct?: Product
+  ) => {
+    const product =
+      createdProduct ??
+      availableProducts.find((item) => item.id === productId);
+
+    setValue(`items.${index}.productId`, productId, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    if (!product) {
+      return;
+    }
+
+    setValue(`items.${index}.description`, product.name, {
+      shouldDirty: true,
+    });
+    setValue(`items.${index}.brand`, product.brand, { shouldDirty: true });
+    setValue(`items.${index}.specification`, product.specification ?? "", {
+      shouldDirty: true,
+    });
+    setValue(`items.${index}.originalUnit`, product.packaging, {
+      shouldDirty: true,
+    });
+    setValue(`items.${index}.normalizedUnit`, product.normalizedUnit, {
+      shouldDirty: true,
+    });
+
+    if (product.lastSalePrice !== undefined) {
+      setValue(`items.${index}.saleUnitPrice`, product.lastSalePrice, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      updateCalculatedItemTotal(index, {
+        saleUnitPrice: product.lastSalePrice,
+      });
+    }
+  };
+
+  const handleQuickProductCreated = (product: Product) => {
+    setQuickCreatedProducts((current) => [
+      product,
+      ...current.filter((item) => item.id !== product.id),
+    ]);
+
+    if (quickProductItemIndex !== null) {
+      handleProductChange(quickProductItemIndex, product.id, product);
+    }
+  };
+
   const onSubmit = handleSubmit(async (formData) => {
     if (!selectedEntityId) {
       return;
     }
+
+    const normalizedItems = formData.items.map((item) => ({
+      ...item,
+      officialTotal: resolveLineTotal(item),
+    }));
+    const normalizedItemsTotal = calculateItemsTotal(normalizedItems);
 
     const payload: PurchaseOrderInput = {
       customerId: formData.customerId,
@@ -269,15 +453,19 @@ export default function PurchaseOrderForm() {
         : isEditing
           ? null
           : undefined,
-      officialTotal: Number(formData.officialTotal),
+      officialTotal:
+        Number(formData.officialTotal) === 0 && normalizedItemsTotal > 0
+          ? normalizedItemsTotal
+          : Number(formData.officialTotal),
       paymentTerms: optionalText(formData.paymentTerms),
       instructions: optionalText(formData.instructions),
       notes: optionalText(formData.notes),
       billingAddress: optionalText(formData.billingAddress),
       deliveryAddress: optionalText(formData.deliveryAddress),
       lifecycleStatus: formData.lifecycleStatus,
-      items: formData.items.map((item) => ({
+      items: normalizedItems.map((item) => ({
         id: item.id,
+        productId: item.productId,
         lineNumber: Number(item.lineNumber),
         description: item.description.trim(),
         brand: item.brand.trim(),
@@ -296,6 +484,7 @@ export default function PurchaseOrderForm() {
         isEditing && purchaseOrderId
           ? await updateMutation.mutateAsync({
               ...payload,
+              items: areItemsLocked ? undefined : payload.items,
               entityId: selectedEntityId,
               purchaseOrderId,
             })
@@ -304,9 +493,14 @@ export default function PurchaseOrderForm() {
               entityId: selectedEntityId,
             });
 
-      await queryClient.invalidateQueries({
-        queryKey: [QueryKeys.PURCHASE_ORDERS, selectedEntityId],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.PURCHASE_ORDERS, selectedEntityId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.PRODUCTS, selectedEntityId],
+        }),
+      ]);
       toast.success(isEditing ? "Ordem atualizada." : "Ordem criada.");
       navigate(`/orders/${savedOrder.id}`);
     } catch (error) {
@@ -345,10 +539,11 @@ export default function PurchaseOrderForm() {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-7"
-    >
+    <>
+      <form
+        onSubmit={onSubmit}
+        className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-7"
+      >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <Button type="button" variant="ghost" className="w-fit" asChild>
           <Link to={isEditing && purchaseOrderId ? `/orders/${purchaseOrderId}` : "/orders"}>
@@ -389,13 +584,24 @@ export default function PurchaseOrderForm() {
             <Controller
               control={control}
               name="customerId"
-              render={({ field }) => (
-                <Select
-                  value={field.value}
-                  onValueChange={handleCustomerChange}
-                >
+              render={({ field }) => {
+                const customerId =
+                  field.value || order?.customerId || order?.customer.id || "";
+                const selectedCustomer =
+                  customers?.find((customer) => customer.id === customerId) ??
+                  (order?.customer.id === customerId
+                    ? order.customer
+                    : undefined);
+
+                return (
+                  <Select
+                    value={customerId}
+                    onValueChange={handleCustomerChange}
+                  >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente" />
+                    <SelectValue placeholder="Selecione o cliente">
+                      {selectedCustomer?.tradeName || selectedCustomer?.legalName}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {activeCustomers?.map((customer) => (
@@ -416,8 +622,9 @@ export default function PurchaseOrderForm() {
                         </SelectItem>
                       )}
                   </SelectContent>
-                </Select>
-              )}
+                  </Select>
+                );
+              }}
             />
             {errors.customerId?.message && (
               <p className="text-xs text-destructive">
@@ -467,34 +674,35 @@ export default function PurchaseOrderForm() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Itens da ordem</CardTitle>
-              <CardDescription className="mt-1">
-                Uma linha para cada item solicitado pelo cliente.
-              </CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const nextLine =
-                  Math.max(0, ...watchedItems.map((item) => item.lineNumber)) +
-                  1;
-                append(newItem(nextLine));
-              }}
-            >
-              <IconPlus />
-              Adicionar item
-            </Button>
-          </div>
+          <CardTitle>Itens da ordem</CardTitle>
+          <CardDescription>
+            Selecione produtos do catalogo e informe quantidade e preco desta
+            venda. Os dados do produto ficam preservados na ordem.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {fields.map((field, index) => (
-            <div
-              key={field.id}
-              className="rounded-2xl border bg-muted/10 p-4 sm:p-5"
-            >
+          {areItemsLocked && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm leading-6 text-amber-100">
+              Os itens foram bloqueados porque a ordem ja possui aquisicoes.
+              Cabecalho, datas, enderecos e observacoes ainda podem ser
+              atualizados.
+            </div>
+          )}
+          <fieldset
+            disabled={areItemsLocked}
+            className="space-y-4 disabled:opacity-70"
+          >
+            {fields.map((field, index) => {
+              const item = watchedItems[index];
+              const selectedProduct = availableProducts.find(
+                (product) => product.id === item?.productId
+              );
+
+              return (
+                <div
+                  key={field.id}
+                  className="rounded-2xl border bg-muted/10 p-4 sm:p-5"
+                >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-sm font-semibold text-emerald-400">
@@ -527,82 +735,192 @@ export default function PurchaseOrderForm() {
                     })}
                   />
                 </Field>
-                <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                  <Label>Descricao</Label>
-                  <Input
-                    placeholder="Descricao conforme a ordem"
-                    error={errors.items?.[index]?.description?.message}
-                    {...register(`items.${index}.description`)}
+                <div className="space-y-2 sm:col-span-1 lg:col-span-4">
+                  <Label>Produto</Label>
+                  <Controller
+                    control={control}
+                    name={`items.${index}.productId`}
+                    render={({ field: productField }) => (
+                      <Select
+                        value={productField.value}
+                        onValueChange={(productId) =>
+                          handleProductChange(index, productId)
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue
+                            placeholder={
+                              isFetchingProducts
+                                ? "Carregando produtos..."
+                                : "Selecione o produto"
+                            }
+                          >
+                            {selectedProduct
+                              ? `${selectedProduct.name} - ${selectedProduct.brand}`
+                              : undefined}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableProducts
+                            .filter(
+                              (product) =>
+                                product.active ||
+                                product.id === productField.value
+                            )
+                            .map((product) => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name} - {product.brand} - {product.packaging}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   />
+                  {errors.items?.[index]?.productId?.message && (
+                    <p className="text-xs text-destructive">
+                      {errors.items[index]?.productId?.message}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-2 sm:col-span-1 lg:col-span-2">
-                  <Label>Marca</Label>
-                  <Input
-                    placeholder="Marca informada"
-                    error={errors.items?.[index]?.brand?.message}
-                    {...register(`items.${index}.brand`)}
-                  />
+                <div className="flex items-end lg:col-span-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setQuickProductItemIndex(index)}
+                  >
+                    <IconPackageImport />
+                    Nao encontrou?
+                  </Button>
                 </div>
 
-                <div className="space-y-2 sm:col-span-2 lg:col-span-3">
-                  <Label>Especificacao opcional</Label>
-                  <Input
-                    placeholder="Modelo, tamanho ou detalhe relevante"
-                    {...register(`items.${index}.specification`)}
-                  />
+                <input
+                  type="hidden"
+                  {...register(`items.${index}.description`)}
+                />
+                <input type="hidden" {...register(`items.${index}.brand`)} />
+                <input
+                  type="hidden"
+                  {...register(`items.${index}.specification`)}
+                />
+                <input
+                  type="hidden"
+                  {...register(`items.${index}.originalUnit`)}
+                />
+                <input
+                  type="hidden"
+                  {...register(`items.${index}.normalizedUnit`)}
+                />
+
+                <div className="rounded-xl border bg-background/60 p-3 sm:col-span-2 lg:col-span-6">
+                  {item?.productId ? (
+                    <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Produto</p>
+                        <p className="mt-1 font-medium">{item.description}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Marca</p>
+                        <p className="mt-1 font-medium">{item.brand}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Embalagem</p>
+                        <p className="mt-1 font-medium">{item.originalUnit}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Referencia da ultima compra
+                        </p>
+                        <p className="mt-1 font-medium">
+                          {selectedProduct?.lastPurchasePrice !== undefined
+                            ? formatCurrency(selectedProduct.lastPurchasePrice)
+                            : "Sem referencia"}
+                        </p>
+                      </div>
+                      {item.specification && (
+                        <p className="text-muted-foreground sm:col-span-2 lg:col-span-4">
+                          {item.specification}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Selecione um produto ou cadastre um novo sem sair desta
+                      ordem.
+                    </p>
+                  )}
                 </div>
-                <Field label="Unidade original">
-                  <Input
-                    placeholder="UN"
-                    error={errors.items?.[index]?.originalUnit?.message}
-                    {...register(`items.${index}.originalUnit`)}
-                  />
-                </Field>
-                <Field label="Unidade normalizada">
-                  <Input
-                    placeholder="UNIT"
-                    error={errors.items?.[index]?.normalizedUnit?.message}
-                    {...register(`items.${index}.normalizedUnit`)}
-                  />
-                </Field>
                 <Field
                   label="Quantidade"
                   error={errors.items?.[index]?.orderedQuantity?.message}
                 >
-                  <Input
-                    type="number"
-                    min="0.001"
-                    step="0.001"
-                    {...register(`items.${index}.orderedQuantity`, {
-                      valueAsNumber: true,
-                    })}
+                  <Controller
+                    control={control}
+                    name={`items.${index}.orderedQuantity`}
+                    render={({ field: quantityField }) => (
+                      <Input
+                        {...quantityField}
+                        type="number"
+                        min="0.001"
+                        step="0.001"
+                        value={
+                          Number.isFinite(quantityField.value)
+                            ? quantityField.value
+                            : ""
+                        }
+                        onChange={(event) => {
+                          const orderedQuantity = event.target.valueAsNumber;
+                          quantityField.onChange(orderedQuantity);
+                          updateCalculatedItemTotal(index, {
+                            orderedQuantity,
+                          });
+                        }}
+                      />
+                    )}
                   />
                 </Field>
                 <Field
                   label="Preco unitario"
                   error={errors.items?.[index]?.saleUnitPrice?.message}
                 >
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.000001"
-                    {...register(`items.${index}.saleUnitPrice`, {
-                      valueAsNumber: true,
-                    })}
+                  <Controller
+                    control={control}
+                    name={`items.${index}.saleUnitPrice`}
+                    render={({ field: priceField }) => (
+                      <InputCurrency
+                        variant="field"
+                        value={
+                          Number.isFinite(priceField.value)
+                            ? priceField.value
+                            : 0
+                        }
+                        onChange={(saleUnitPrice) => {
+                          priceField.onChange(saleUnitPrice);
+                          updateCalculatedItemTotal(index, { saleUnitPrice });
+                        }}
+                      />
+                    )}
                   />
                 </Field>
                 <Field
                   label="Total oficial da linha"
                   error={errors.items?.[index]?.officialTotal?.message}
                 >
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    {...register(`items.${index}.officialTotal`, {
-                      valueAsNumber: true,
-                    })}
+                  <Controller
+                    control={control}
+                    name={`items.${index}.officialTotal`}
+                    render={({ field }) => (
+                      <InputCurrency
+                        variant="field"
+                        value={Number.isFinite(field.value) ? field.value : 0}
+                        onChange={field.onChange}
+                      />
+                    )}
                   />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Calculado por quantidade x preco. Ajuste apenas se o
+                    documento informar outro total.
+                  </p>
                 </Field>
                 <div className="space-y-2 sm:col-span-2 lg:col-span-3">
                   <Label>Observacoes</Label>
@@ -612,14 +930,32 @@ export default function PurchaseOrderForm() {
                   />
                 </div>
               </div>
-            </div>
-          ))}
+                </div>
+              );
+            })}
 
-          {errors.items?.root?.message && (
-            <p className="text-sm text-destructive">
-              {errors.items.root.message}
-            </p>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-full border-dashed"
+              disabled={areItemsLocked}
+              onClick={() => {
+                const nextLine =
+                  Math.max(0, ...watchedItems.map((item) => item.lineNumber)) +
+                  1;
+                append(newItem(nextLine));
+              }}
+            >
+              <IconPlus />
+              Adicionar outro item
+            </Button>
+
+            {errors.items?.root?.message && (
+              <p className="text-sm text-destructive">
+                {errors.items.root.message}
+              </p>
+            )}
+          </fieldset>
         </CardContent>
       </Card>
 
@@ -684,12 +1020,21 @@ export default function PurchaseOrderForm() {
               label="Total oficial da ordem"
               error={errors.officialTotal?.message}
             >
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                {...register("officialTotal", { valueAsNumber: true })}
+              <Controller
+                control={control}
+                name="officialTotal"
+                render={({ field }) => (
+                  <InputCurrency
+                    variant="field"
+                    value={Number.isFinite(field.value) ? field.value : 0}
+                    onChange={field.onChange}
+                  />
+                )}
               />
+              <p className="text-xs leading-5 text-muted-foreground">
+                Acompanha a soma das linhas ate que voce informe um valor
+                diferente do documento.
+              </p>
             </Field>
             <Button
               type="button"
@@ -725,7 +1070,14 @@ export default function PurchaseOrderForm() {
           {isEditing ? "Salvar alteracoes" : "Criar ordem"}
         </Button>
       </div>
-    </form>
+      </form>
+
+      <ProductModal
+        isOpen={quickProductItemIndex !== null}
+        onClose={() => setQuickProductItemIndex(null)}
+        onCreated={handleQuickProductCreated}
+      />
+    </>
   );
 }
 

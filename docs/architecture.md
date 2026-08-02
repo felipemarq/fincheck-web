@@ -21,7 +21,9 @@ do TanStack Query.
 5. se a renovacao falhar, limpa a sessao e redireciona para `/login`
 
 A entidade existente no backend representa a organizacao operacional. Seu ID
-delimita clientes, ordens e todos os modulos futuros da V2.
+delimita clientes, produtos, ordens e todos os modulos futuros da V2.
+Ao criar uma organizacao, o Web a seleciona e encaminha o usuario ao catalogo
+para iniciar pelos produtos que serao cotados.
 
 ## Roteamento atual
 
@@ -34,19 +36,21 @@ Rotas publicas:
 
 Rotas privadas da V2:
 
+- `/dashboard`
 - `/orders`
 - `/orders/new`
 - `/orders/:purchaseOrderId`
 - `/orders/:purchaseOrderId/edit`
 - `/customers`
+- `/products`
 
-`/` redireciona para `/orders`. Os modulos financeiros anteriores continuam
+`/` redireciona para `/dashboard`. Os modulos financeiros anteriores continuam
 no historico Git e na branch legada, mas nao participam da navegacao V2.
 
 ## Estado e cache
 
 - TanStack Query centraliza consultas, mutacoes e invalidacao
-- chaves de clientes e ordens incluem o `entityId`
+- chaves de clientes, produtos, ordens e operacoes incluem o `entityId`
 - trocar a organizacao ativa troca automaticamente o conjunto de dados
 - formularios usam React Hook Form e Zod
 - a API e a fonte de verdade para totais calculados e progresso operacional
@@ -55,17 +59,20 @@ no historico Git e na branch legada, mas nao participam da navegacao V2.
 
 - `VITE_API_URL` define a URL base
 - todas as rotas privadas incluem o `entityId` no caminho
-- o detalhe da ordem retorna cabecalho, snapshot do cliente e itens
+- o detalhe da ordem retorna cabecalho, snapshot do cliente, itens e metricas
+  derivadas de aquisicoes, chegadas, entregas, notas e pagamentos
 - criacao e edicao enviam a ordem e seus itens em uma unica operacao
+- cada item envia o `productId`; nome, marca, especificacao e unidades sao
+  snapshots confirmados pela API
+- o modal de produto e reutilizado na pagina de catalogo e no cadastro rapido
+  da ordem
 - campos opcionais podem ser limpos explicitamente na edicao
+- aquisicoes, chegadas, entregas e notas sao consultadas separadamente e
+  invalidam ordem e dashboard ao serem criadas ou alteradas
+- itens da ordem tornam-se somente leitura depois da primeira aquisicao
 
-## Evolucao da V2
+## Limites atuais
 
-Os proximos modulos devem se conectar a `PurchaseOrderItem`, sem criar um
-controle financeiro generico paralelo. A sequencia prevista e:
-
-1. aquisicoes e previsao de chegada
-2. recebimento dos produtos
-3. entregas totais e parciais
-4. faturamento e recebimento do cliente
-5. custos, impostos e margem da ordem
+O fluxo operacional principal esta implementado sem criar um controle
+financeiro generico paralelo. Permanecem fora do MVP anexos, OCR, estoque
+reutilizavel, conciliacao bancaria e relatorios avancados.

@@ -62,7 +62,7 @@ export function EntityModal({
   entity,
 }: EntityModalProps) {
   const navigate = useNavigate();
-  const { handleChangeSelectedEntityId, startEntityOnboarding } = useAuth();
+  const { handleChangeSelectedEntityId } = useAuth();
   const queryClient = useQueryClient();
 
   const defaultValues = useMemo<FormData>(
@@ -114,8 +114,9 @@ export function EntityModal({
       } else {
         const createdEntity = await createEntity(data);
         handleChangeSelectedEntityId(createdEntity.id);
-        startEntityOnboarding(createdEntity.id, "create-account");
-        toast.success("Entidade criada com sucesso! Agora crie a primeira conta.");
+        toast.success(
+          "Organização criada com sucesso. Cadastre os produtos que serão cotados."
+        );
       }
 
       await queryClient.invalidateQueries({
@@ -124,7 +125,7 @@ export function EntityModal({
       onClose();
 
       if (action === "create") {
-        navigate("/accounts");
+        navigate("/products");
       }
     } catch (error) {
       treatAxiosError(error);
@@ -141,7 +142,7 @@ export function EntityModal({
           <DialogDescription>
             {action === "update"
               ? "Atualize o nome, o tipo e a cor da entidade selecionada."
-              : "Crie uma nova entidade para separar seus dados PF e PJ com dashboard, contatos, cartões e transações independentes."}
+              : "Crie uma organização para manter clientes, produtos e operações separados dos demais negócios."}
           </DialogDescription>
         </DialogHeader>
 
