@@ -1,9 +1,18 @@
 import type { OperationsDashboard } from "@/app/entities/OperationsDashboard";
 import { httpClient } from "../httpClient";
 
-export async function get(entityId: string) {
+export type GetOperationsDashboardParams = {
+  issuedFrom?: string;
+  issuedTo?: string;
+};
+
+export async function get(
+  entityId: string,
+  params: GetOperationsDashboardParams = {}
+) {
   const { data } = await httpClient.get<OperationsDashboard>(
-    `/entities/${entityId}/operations-dashboard`
+    `/entities/${entityId}/operations-dashboard`,
+    { params }
   );
 
   return data;

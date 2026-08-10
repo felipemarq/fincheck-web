@@ -6,7 +6,7 @@ import type { Entity } from "../entities/Entity";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { treatAxiosError } from "../utils/treatAxiosError";
 import { AxiosError } from "axios";
-import logo from "@/assets/moneystack_wordmark.png";
+import logo from "@/assets/jc-materiais-logo-stacked.png";
 import { usersService } from "../services/usersService";
 import { authStorage, type AuthSession } from "../services/authStorage";
 

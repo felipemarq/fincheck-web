@@ -11,6 +11,21 @@ const routeMeta = [
     description: "Pendencias, prazos e resultados da organizacao ativa.",
   },
   {
+    matcher: (pathname: string) => pathname === "/quotations",
+    title: "Cotacoes",
+    description: "Propostas comerciais enviadas aos clientes.",
+  },
+  {
+    matcher: (pathname: string) => pathname === "/quotations/new",
+    title: "Nova cotacao",
+    description: "Produtos, precos, condicoes e imagens da proposta.",
+  },
+  {
+    matcher: (pathname: string) => pathname.startsWith("/quotations/"),
+    title: "Detalhe da cotacao",
+    description: "Revisao comercial e exportacao da proposta em PDF.",
+  },
+  {
     matcher: (pathname: string) => pathname === "/orders",
     title: "Ordens de compra",
     description: "Compromissos comerciais da organizacao ativa.",
@@ -19,6 +34,11 @@ const routeMeta = [
     matcher: (pathname: string) => pathname === "/orders/new",
     title: "Nova ordem",
     description: "Cadastro manual do documento e seus itens.",
+  },
+  {
+    matcher: (pathname: string) => pathname === "/items",
+    title: "Itens operacionais",
+    description: "Fila unificada de compras e recebimentos das ordens ativas.",
   },
   {
     matcher: (pathname: string) => pathname.endsWith("/edit"),
@@ -39,6 +59,16 @@ const routeMeta = [
     matcher: (pathname: string) => pathname === "/products",
     title: "Produtos",
     description: "Catalogo e referencias para compras e vendas.",
+  },
+  {
+    matcher: (pathname: string) => pathname === "/pricing",
+    title: "Precificacao",
+    description: "Calculo rapido de precos para cotacoes.",
+  },
+  {
+    matcher: (pathname: string) => pathname === "/finance",
+    title: "Financeiro",
+    description: "Contas a pagar, recebimentos e cartoes da operacao ativa.",
   },
 ];
 

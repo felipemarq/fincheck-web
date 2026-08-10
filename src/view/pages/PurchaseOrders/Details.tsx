@@ -6,6 +6,8 @@ import {
   IconCalendar,
   IconEdit,
   IconFileInvoice,
+  IconFileTypePdf,
+  IconFilter,
   IconMapPin,
   IconPackage,
   IconPackageExport,
@@ -16,6 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import type { Acquisition } from "@/app/entities/Acquisition";
 import type { Delivery } from "@/app/entities/Delivery";
@@ -41,6 +44,7 @@ import { AcquisitionReceiptModal } from "@/view/modals/AcquisitionReceiptModal";
 import { DeliveryModal } from "@/view/modals/DeliveryModal";
 import { InvoiceModal } from "@/view/modals/InvoiceModal";
 import { ReceivablePaymentModal } from "@/view/modals/ReceivablePaymentModal";
+import { exportPurchaseOrderPdf } from "./exportPurchaseOrderPdf";
 import {
   formatCurrency,
   formatDate,
@@ -128,9 +132,48 @@ function formatQuantity(value: number) {
   });
 }
 
+const itemFilters = [
+  { value: "ALL", label: "Todos" },
+  { value: "PENDING_PURCHASE", label: "Falta comprar" },
+  { value: "PURCHASED", label: "Comprados" },
+  { value: "RECEIVED", label: "Recebidos" },
+  { value: "EXCESS", label: "Excedente" },
+] as const;
+
+type ItemFilter = (typeof itemFilters)[number]["value"];
+
+function matchesItemFilter(
+  item: {
+    purchasePendingQuantity: number;
+    acquiredQuantity: number;
+    receivedQuantity: number;
+    excessQuantity: number;
+  },
+  filter: ItemFilter
+) {
+  if (filter === "PENDING_PURCHASE") {
+    return item.purchasePendingQuantity > 0;
+  }
+
+  if (filter === "PURCHASED") {
+    return item.acquiredQuantity > 0;
+  }
+
+  if (filter === "RECEIVED") {
+    return item.receivedQuantity > 0;
+  }
+
+  if (filter === "EXCESS") {
+    return item.excessQuantity > 0;
+  }
+
+  return true;
+}
+
 export default function PurchaseOrderDetails() {
   const { purchaseOrderId = "" } = useParams();
-  const { selectedEntityId } = useAuth();
+  const { activeEntity, selectedEntityId } = useAuth();
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isAcquisitionModalOpen, setIsAcquisitionModalOpen] =
     useState(false);
   const [selectedAcquisition, setSelectedAcquisition] =
@@ -154,6 +197,7 @@ export default function PurchaseOrderDetails() {
   );
   const [selectedPayment, setSelectedPayment] =
     useState<ReceivablePayment | null>(null);
+  const [itemFilter, setItemFilter] = useState<ItemFilter>("ALL");
 
   const { order, isFetchingOrder, isError, refetch } = usePurchaseOrder(
     {
@@ -260,6 +304,24 @@ export default function PurchaseOrderDetails() {
     setSelectedPayment(null);
   };
 
+  const handleExportPdf = async () => {
+    if (!order || isExportingPdf) {
+      return;
+    }
+
+    setIsExportingPdf(true);
+
+    try {
+      await exportPurchaseOrderPdf(order, activeEntity?.name);
+      toast.success("PDF da ordem exportado.");
+    } catch (error) {
+      console.error("Failed to export purchase order PDF", error);
+      toast.error("Não foi possível gerar o PDF desta ordem.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   if (isFetchingOrder) {
     return (
       <div className="p-4 lg:p-6">
@@ -293,6 +355,24 @@ export default function PurchaseOrderDetails() {
   }
 
   const canOperate = order.lifecycleStatus === "ACTIVE";
+  const filteredItems = order.items.filter((item) =>
+    matchesItemFilter(item, itemFilter)
+  );
+  const itemFilterCounts = {
+    ALL: order.items.length,
+    PENDING_PURCHASE: order.items.filter((item) =>
+      matchesItemFilter(item, "PENDING_PURCHASE")
+    ).length,
+    PURCHASED: order.items.filter((item) =>
+      matchesItemFilter(item, "PURCHASED")
+    ).length,
+    RECEIVED: order.items.filter((item) =>
+      matchesItemFilter(item, "RECEIVED")
+    ).length,
+    EXCESS: order.items.filter((item) =>
+      matchesItemFilter(item, "EXCESS")
+    ).length,
+  } satisfies Record<ItemFilter, number>;
 
   return (
     <>
@@ -305,6 +385,16 @@ export default function PurchaseOrderDetails() {
             </Link>
           </Button>
           <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              isLoading={isExportingPdf}
+              onClick={handleExportPdf}
+              aria-label="Exportar ordem completa em PDF"
+            >
+              <IconFileTypePdf />
+              {isExportingPdf ? "Gerando PDF" : "Exportar PDF"}
+            </Button>
             <Button variant="outline" asChild>
               <Link to={`/orders/${order.id}/edit`}>
                 <IconEdit />
@@ -462,7 +552,42 @@ export default function PurchaseOrderDetails() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {order.items.map((item) => (
+            <div className="rounded-xl border bg-muted/10 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <IconFilter className="size-4 text-emerald-400" />
+                  Filtrar itens
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Exibindo {filteredItems.length} de {order.items.length}
+                </p>
+              </div>
+              <div
+                className="mt-3 flex flex-wrap gap-2"
+                role="group"
+                aria-label="Filtrar itens da ordem"
+              >
+                {itemFilters.map((filter) => (
+                  <Button
+                    key={filter.value}
+                    type="button"
+                    size="sm"
+                    variant={
+                      itemFilter === filter.value ? "secondary" : "outline"
+                    }
+                    aria-pressed={itemFilter === filter.value}
+                    onClick={() => setItemFilter(filter.value)}
+                  >
+                    {filter.label}
+                    <span className="rounded-full bg-background/70 px-1.5 py-0.5 text-[11px] tabular-nums">
+                      {itemFilterCounts[filter.value]}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {filteredItems.map((item) => (
               <div
                 key={item.id ?? item.lineNumber}
                 className="grid gap-4 rounded-xl border bg-muted/15 p-4 md:grid-cols-[auto_1fr_auto]"
@@ -561,8 +686,30 @@ export default function PurchaseOrderDetails() {
               </div>
             ))}
 
+            {filteredItems.length === 0 && (
+              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-4 py-8 text-center">
+                <IconFilter className="size-6 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Nenhum item neste filtro</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Esta ordem nao possui itens com essa situacao no momento.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setItemFilter("ALL")}
+                >
+                  Mostrar todos
+                </Button>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2 border-t pt-4 text-sm sm:flex-row sm:items-center sm:justify-end">
-              <span className="text-muted-foreground">Soma das linhas</span>
+              <span className="text-muted-foreground">
+                Soma de todas as linhas
+              </span>
               <strong className="text-lg">
                 {formatCurrency(order.calculatedItemsTotal)}
               </strong>
@@ -638,6 +785,25 @@ export default function PurchaseOrderDetails() {
               const canEdit =
                 acquisition.status === "PLACED" ||
                 acquisition.status === "IN_TRANSIT";
+              const currentItems = acquisition.items.flatMap((item) =>
+                item.allocations
+                  .filter(
+                    (allocation) => allocation.purchaseOrderId === order.id
+                  )
+                  .map((allocation) => ({ item, allocation }))
+              );
+              const allocatedTotals = currentItems.reduce(
+                (totals, { allocation }) => ({
+                  items: totals.items + allocation.itemCost,
+                  shipping: totals.shipping + allocation.shippingCost,
+                  other: totals.other + allocation.otherExpenses,
+                  discount: totals.discount + allocation.generalDiscount,
+                }),
+                { items: 0, shipping: 0, other: 0, discount: 0 }
+              );
+              const requiresGroupedEditor =
+                acquisition.relatedOrderCount > 1 ||
+                acquisition.unallocatedItemCount > 0;
 
               return (
                 <article
@@ -659,6 +825,11 @@ export default function PurchaseOrderDetails() {
                             {acquisition.channel}
                           </span>
                         )}
+                        {acquisition.relatedOrderCount > 1 && (
+                          <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-xs text-sky-300">
+                            Compartilhada com {acquisition.relatedOrderCount} ordens
+                          </span>
+                        )}
                       </div>
                       <h3 className="mt-3 text-lg font-semibold">
                         {acquisition.sellerName || "Vendedor nao informado"}
@@ -673,21 +844,32 @@ export default function PurchaseOrderDetails() {
                     <div className="flex items-center gap-3">
                       <div className="text-left lg:text-right">
                         <p className="text-xs text-muted-foreground">
-                          Custo total
+                          Custo nesta ordem
                         </p>
                         <p className="mt-1 text-xl font-semibold text-emerald-300">
-                          {formatCurrency(acquisition.totalCost)}
+                          {formatCurrency(
+                            acquisition.allocatedCostForCurrentOrder ??
+                              acquisition.totalCost
+                          )}
                         </p>
                       </div>
                       {canOperate && canEdit && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openAcquisition(acquisition)}
-                        >
-                          <IconEdit />
-                          Editar
-                        </Button>
+                        requiresGroupedEditor ? (
+                          <Button size="sm" variant="outline" asChild>
+                            <Link to={`/purchases?edit=${acquisition.id}`}>
+                              <IconEdit /> Editar pedido
+                            </Link>
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openAcquisition(acquisition)}
+                          >
+                            <IconEdit />
+                            Editar
+                          </Button>
+                        )
                       )}
                       {canOperate &&
                         acquisition.status !== "CANCELLED" && (
@@ -724,23 +906,23 @@ export default function PurchaseOrderDetails() {
                   </div>
 
                   <div className="mt-4 space-y-2 border-t pt-4">
-                    {acquisition.items.map((item) => (
+                    {currentItems.map(({ item, allocation }) => (
                       <div
-                        key={item.id ?? item.purchaseOrderItemId}
+                        key={`${item.id}:${allocation.purchaseOrderItemId}`}
                         className="flex flex-col gap-2 rounded-xl bg-background/40 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
                           <p className="font-medium">
-                            {item.lineNumber}. {item.description}
+                            {allocation.lineNumber}. {item.description}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatQuantity(item.acquiredQuantity)}{" "}
-                            {item.originalUnit} - custo unitario{" "}
+                            {formatQuantity(allocation.allocatedQuantity)}{" "}
+                            {allocation.originalUnit} - custo unitario{" "}
                             {formatCurrency(item.costUnitPrice)}
                           </p>
                         </div>
                         <p className="font-semibold">
-                          {formatCurrency(item.totalCost)}
+                          {formatCurrency(allocation.totalCost)}
                         </p>
                       </div>
                     ))}
@@ -748,18 +930,18 @@ export default function PurchaseOrderDetails() {
 
                   <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t pt-4 text-xs text-muted-foreground">
                     <span>
-                      Itens: {formatCurrency(acquisition.itemsSubtotal)}
+                      Produtos: {formatCurrency(allocatedTotals.items)}
                     </span>
                     <span>
-                      Frete: {formatCurrency(acquisition.shippingCost)}
+                      Frete rateado: {formatCurrency(allocatedTotals.shipping)}
                     </span>
                     <span>
                       Outras despesas:{" "}
-                      {formatCurrency(acquisition.otherExpenses)}
+                      {formatCurrency(allocatedTotals.other)}
                     </span>
                     <span>
                       Desconto geral:{" "}
-                      {formatCurrency(acquisition.generalDiscount)}
+                      {formatCurrency(allocatedTotals.discount)}
                     </span>
                   </div>
                 </article>

@@ -20,6 +20,8 @@ export type OperationsDashboard = {
     receivedRevenue: number;
     receivableBalance: number;
     projectedMargin: number;
+    costCoveredRevenue: number;
+    knownCostMargin: number;
     invoicedMargin: number;
   };
   receivables: {

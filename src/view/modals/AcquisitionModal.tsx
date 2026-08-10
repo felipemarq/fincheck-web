@@ -7,17 +7,25 @@ import {
   IconTruck,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { QueryKeys } from "@/app/config/QueryKeys";
 import type { Acquisition } from "@/app/entities/Acquisition";
+import type { CreditCard } from "@/app/entities/CreditCard";
 import type { PurchaseOrder } from "@/app/entities/PurchaseOrder";
 import { useAuth } from "@/app/hooks/useAuth";
+import { useCreditCards } from "@/app/hooks/useCreditCards";
 import { acquisitionService } from "@/app/services/acquisitionService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
+import {
+  calculatePurchaseLineTotal,
+  calculatePurchaseUnitPrice,
+  formatCalculatedUnitPrice,
+} from "@/app/utils/purchasePricing";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,13 +45,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { InputCurrency } from "@/view/components/InputCurrency";
+import { CreditCardModal } from "@/view/modals/CreditCardModal";
 import { formatCurrency } from "@/view/pages/PurchaseOrders/purchaseOrderPresentation";
 
 const acquisitionItemSchema = z.object({
   purchaseOrderItemId: z.string().min(1),
   selected: z.boolean(),
   acquiredQuantity: z.number().nonnegative(),
+  pricingMode: z.enum(["UNIT", "TOTAL"]),
   costUnitPrice: z.number().nonnegative(),
+  lineTotal: z.number().nonnegative(),
   lineDiscount: z.number().nonnegative(),
   notes: z.string().trim().max(4000),
 });
@@ -56,20 +67,23 @@ const acquisitionSchema = z
     sellerOrderNumber: z.string().trim().max(120),
     purchasedAt: z.string().min(1, "Informe a data da compra."),
     buyerName: z.string().trim().min(1, "Informe quem comprou.").max(160),
-    paymentMethod: z
-      .string()
-      .trim()
-      .min(1, "Informe a forma de pagamento.")
-      .max(80),
+    paymentMethod: z.enum([
+      "PIX",
+      "CREDIT_CARD",
+      "DEBIT_CARD",
+      "BOLETO",
+      "BANK_TRANSFER",
+      "CASH",
+      "OTHER",
+    ]),
     paymentInstrument: z
       .string()
       .trim()
-      .max(120)
-      .refine(
-        (value) => (value.match(/\d/g)?.length ?? 0) <= 4,
-        "Use somente os quatro ultimos digitos."
-      ),
+      .max(120),
     paymentHolder: z.string().trim().max(160),
+    creditCardId: z.string(),
+    installmentCount: z.number().int().min(1).max(36),
+    firstPaymentDueAt: z.string(),
     shippingCost: z.number().nonnegative(),
     generalDiscount: z.number().nonnegative(),
     otherExpenses: z.number().nonnegative(),
@@ -101,7 +115,12 @@ const acquisitionSchema = z
         });
       }
 
-      const grossCost = item.acquiredQuantity * item.costUnitPrice;
+      const grossCost = calculatePurchaseLineTotal({
+        mode: item.pricingMode,
+        quantity: item.acquiredQuantity,
+        unitPrice: item.costUnitPrice,
+        totalPrice: item.lineTotal,
+      });
       if (item.lineDiscount > grossCost) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -114,7 +133,12 @@ const acquisitionSchema = z
     const itemsSubtotal = selectedItems.reduce(
       (total, item) =>
         total +
-        item.acquiredQuantity * item.costUnitPrice -
+        calculatePurchaseLineTotal({
+          mode: item.pricingMode,
+          quantity: item.acquiredQuantity,
+          unitPrice: item.costUnitPrice,
+          totalPrice: item.lineTotal,
+        }) -
         item.lineDiscount,
       0
     );
@@ -126,6 +150,42 @@ const acquisitionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["generalDiscount"],
         message: "O desconto nao pode superar o custo da compra.",
+      });
+    }
+
+    if (data.paymentMethod === "CREDIT_CARD") {
+      if (!data.creditCardId) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["creditCardId"],
+          message: "Selecione o cartao utilizado.",
+        });
+      }
+      if (!data.firstPaymentDueAt) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["firstPaymentDueAt"],
+          message: "Informe o vencimento da primeira parcela.",
+        });
+      }
+    }
+
+    if (data.paymentMethod === "BOLETO" && !data.firstPaymentDueAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["firstPaymentDueAt"],
+        message: "Informe o vencimento do boleto.",
+      });
+    }
+
+    if (
+      data.paymentMethod === "DEBIT_CARD" &&
+      (data.paymentInstrument.match(/\d/g)?.length ?? 0) > 4
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["paymentInstrument"],
+        message: "Use somente os quatro ultimos digitos.",
       });
     }
   });
@@ -154,6 +214,32 @@ function optionalText(value: string, isEditing: boolean) {
   return normalized || (isEditing ? null : undefined);
 }
 
+function normalizePaymentMethod(value?: string): AcquisitionFormData["paymentMethod"] {
+  if (["PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO", "BANK_TRANSFER", "CASH", "OTHER"].includes(value ?? "")) {
+    return value as AcquisitionFormData["paymentMethod"];
+  }
+
+  const normalized = value?.toLowerCase() ?? "";
+  if (normalized.includes("credito") || normalized.includes("crédito")) return "CREDIT_CARD";
+  if (normalized.includes("debito") || normalized.includes("débito")) return "DEBIT_CARD";
+  if (normalized.includes("pix")) return "PIX";
+  if (normalized.includes("boleto")) return "BOLETO";
+  if (normalized.includes("dinheiro")) return "CASH";
+  if (normalized.includes("transfer")) return "BANK_TRANSFER";
+  return "OTHER";
+}
+
+function suggestedCardDueDate(purchasedAt: string, card: CreditCard) {
+  const purchase = new Date(`${purchasedAt}T12:00:00.000Z`);
+  const closingMonthOffset = purchase.getUTCDate() > card.closingDay ? 1 : 0;
+  const dueMonthOffset = card.dueDay <= card.closingDay ? 1 : 0;
+  const year = purchase.getUTCFullYear();
+  const month = purchase.getUTCMonth() + closingMonthOffset + dueMonthOffset;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const due = new Date(Date.UTC(year, month, Math.min(card.dueDay, lastDay), 12));
+  return due.toISOString().slice(0, 10);
+}
+
 function makeInitialValues(
   order: PurchaseOrder,
   acquisition?: Acquisition | null,
@@ -165,7 +251,14 @@ function makeInitialValues(
   const initiallySelectedId =
     initialPurchaseOrderItemId ?? firstPendingItem ?? null;
   const acquisitionItemsByOrderItemId = new Map(
-    acquisition?.items.map((item) => [item.purchaseOrderItemId, item]) ?? []
+    acquisition?.items.flatMap((item) =>
+      item.allocations
+        .filter((allocation) => allocation.purchaseOrderId === order.id)
+        .map((allocation) => [
+          allocation.purchaseOrderItemId,
+          { item, allocation },
+        ] as const)
+    ) ?? []
   );
 
   return {
@@ -176,9 +269,12 @@ function makeInitialValues(
     purchasedAt:
       acquisition?.purchasedAt.slice(0, 10) ?? getLocalDateInputValue(),
     buyerName: acquisition?.buyerName ?? "",
-    paymentMethod: acquisition?.paymentMethod ?? "",
+    paymentMethod: normalizePaymentMethod(acquisition?.paymentMethod),
     paymentInstrument: acquisition?.paymentInstrument ?? "",
     paymentHolder: acquisition?.paymentHolder ?? "",
+    creditCardId: acquisition?.creditCardId ?? "",
+    installmentCount: acquisition?.installmentCount ?? 1,
+    firstPaymentDueAt: acquisition?.firstPaymentDueAt?.slice(0, 10) ?? "",
     shippingCost: acquisition?.shippingCost ?? 0,
     generalDiscount: acquisition?.generalDiscount ?? 0,
     otherExpenses: acquisition?.otherExpenses ?? 0,
@@ -190,21 +286,26 @@ function makeInitialValues(
           : "PLACED",
     notes: acquisition?.notes ?? "",
     items: order.items.map((orderItem) => {
-      const acquisitionItem = acquisitionItemsByOrderItemId.get(
+      const acquisitionEntry = acquisitionItemsByOrderItemId.get(
         orderItem.id ?? ""
       );
-      const selected = Boolean(acquisitionItem) ||
+      const selected = Boolean(acquisitionEntry) ||
         (!acquisition && orderItem.id === initiallySelectedId);
 
       return {
         purchaseOrderItemId: orderItem.id ?? "",
         selected,
         acquiredQuantity:
-          acquisitionItem?.acquiredQuantity ??
+          acquisitionEntry?.allocation.allocatedQuantity ??
           (selected ? orderItem.purchasePendingQuantity || 1 : 0),
-        costUnitPrice: acquisitionItem?.costUnitPrice ?? 0,
-        lineDiscount: acquisitionItem?.lineDiscount ?? 0,
-        notes: acquisitionItem?.notes ?? "",
+        pricingMode: "UNIT" as const,
+        costUnitPrice: acquisitionEntry?.item.costUnitPrice ?? 0,
+        lineTotal:
+          (acquisitionEntry?.allocation.allocatedQuantity ??
+            (selected ? orderItem.purchasePendingQuantity || 1 : 0)) *
+          (acquisitionEntry?.item.costUnitPrice ?? 0),
+        lineDiscount: acquisitionEntry?.item.lineDiscount ?? 0,
+        notes: acquisitionEntry?.allocation.notes ?? acquisitionEntry?.item.notes ?? "",
       };
     }),
   };
@@ -218,14 +319,18 @@ export function AcquisitionModal({
   initialPurchaseOrderItemId,
 }: AcquisitionModalProps) {
   const { selectedEntityId } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEditing = Boolean(acquisition);
+  const [isCreditCardModalOpen, setIsCreditCardModalOpen] = useState(false);
+  const { data: creditCards = [] } = useCreditCards(selectedEntityId, true);
 
   const {
     control,
     handleSubmit,
     register,
     reset,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<AcquisitionFormData>({
@@ -268,6 +373,10 @@ export function AcquisitionModal({
   const shippingCost = Number(watch("shippingCost")) || 0;
   const generalDiscount = Number(watch("generalDiscount")) || 0;
   const otherExpenses = Number(watch("otherExpenses")) || 0;
+  const paymentMethod = watch("paymentMethod");
+  const selectedCreditCardId = watch("creditCardId");
+  const purchasedAt = watch("purchasedAt");
+  const selectedCreditCard = creditCards.find((card) => card.id === selectedCreditCardId);
   const itemsSubtotal = watchedItems.reduce((total, item) => {
     if (!item.selected) {
       return total;
@@ -275,8 +384,12 @@ export function AcquisitionModal({
 
     return (
       total +
-      (Number(item.acquiredQuantity) || 0) *
-        (Number(item.costUnitPrice) || 0) -
+      calculatePurchaseLineTotal({
+        mode: item.pricingMode,
+        quantity: Number(item.acquiredQuantity) || 0,
+        unitPrice: Number(item.costUnitPrice) || 0,
+        totalPrice: Number(item.lineTotal) || 0,
+      }) -
       (Number(item.lineDiscount) || 0)
     );
   }, 0);
@@ -300,12 +413,28 @@ export function AcquisitionModal({
         `${formData.purchasedAt}T12:00:00.000Z`
       ).toISOString(),
       buyerName: formData.buyerName.trim(),
-      paymentMethod: formData.paymentMethod.trim(),
-      paymentInstrument: optionalText(
-        formData.paymentInstrument,
-        isEditing
-      ),
-      paymentHolder: optionalText(formData.paymentHolder, isEditing),
+      paymentMethod: formData.paymentMethod,
+      paymentInstrument:
+        formData.paymentMethod === "CREDIT_CARD"
+          ? isEditing ? null : undefined
+          : optionalText(formData.paymentInstrument, isEditing),
+      paymentHolder:
+        formData.paymentMethod === "CREDIT_CARD"
+          ? isEditing ? null : undefined
+          : optionalText(formData.paymentHolder, isEditing),
+      creditCardId:
+        formData.paymentMethod === "CREDIT_CARD"
+          ? formData.creditCardId
+          : isEditing ? null : undefined,
+      installmentCount:
+        formData.paymentMethod === "CREDIT_CARD"
+          ? Number(formData.installmentCount)
+          : 1,
+      firstPaymentDueAt:
+        formData.paymentMethod === "CREDIT_CARD" ||
+        formData.paymentMethod === "BOLETO"
+          ? new Date(`${formData.firstPaymentDueAt}T12:00:00.000Z`).toISOString()
+          : isEditing ? null : undefined,
       shippingCost: Number(formData.shippingCost),
       generalDiscount: Number(formData.generalDiscount),
       otherExpenses: Number(formData.otherExpenses),
@@ -316,9 +445,14 @@ export function AcquisitionModal({
         .map((item) => ({
           purchaseOrderItemId: item.purchaseOrderItemId,
           acquiredQuantity: Number(item.acquiredQuantity),
-          costUnitPrice: Number(item.costUnitPrice),
+          costUnitPrice: calculatePurchaseUnitPrice({
+            mode: item.pricingMode,
+            quantity: Number(item.acquiredQuantity),
+            unitPrice: Number(item.costUnitPrice),
+            totalPrice: Number(item.lineTotal),
+          }),
           lineDiscount: Number(item.lineDiscount),
-          notes: optionalText(item.notes, isEditing),
+          notes: optionalText(item.notes, false),
         })),
     };
 
@@ -352,7 +486,13 @@ export function AcquisitionModal({
           queryKey: [QueryKeys.PURCHASE_ORDERS, selectedEntityId],
         }),
         queryClient.invalidateQueries({
+          queryKey: [QueryKeys.PURCHASE_ORDER_ITEMS, selectedEntityId],
+        }),
+        queryClient.invalidateQueries({
           queryKey: [QueryKeys.PRODUCTS, selectedEntityId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.SUPPLIER_PURCHASES, selectedEntityId],
         }),
       ]);
       onClose();
@@ -362,6 +502,7 @@ export function AcquisitionModal({
   });
 
   return (
+    <>
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
@@ -377,12 +518,34 @@ export function AcquisitionModal({
             {isEditing ? "Editar aquisicao" : "Registrar compra"}
           </DialogTitle>
           <DialogDescription>
-            Vincule esta compra aos itens da ordem {order.orderNumber}. Uma
-            aquisicao nunca mistura itens de ordens diferentes.
+            Fluxo rapido para uma compra que atende somente a ordem {order.orderNumber}.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-5">
+          {!isEditing && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-sky-400/20 bg-sky-400/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-sky-100">Este carrinho possui outros produtos ou atende outras ordens?</p>
+                <p className="mt-1 text-xs text-muted-foreground">Use o pedido agrupado para registrar frete e pagamento uma unica vez.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => {
+                  const itemId = watchedItems.find((item) => item.selected)?.purchaseOrderItemId ?? initialPurchaseOrderItemId;
+                  onClose();
+                  navigate(itemId ? `/purchases?itemId=${itemId}` : "/purchases?new=1");
+                }}>
+                  Compra agrupada
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => {
+                  onClose();
+                  navigate("/purchases");
+                }}>
+                  Adicionar a pedido existente
+                </Button>
+              </div>
+            </div>
+          )}
           <section className="rounded-2xl border bg-muted/10 p-4 sm:p-5">
             <div className="mb-4 flex items-center gap-2">
               <IconTruck className="size-5 text-emerald-400" />
@@ -478,28 +641,102 @@ export function AcquisitionModal({
                 label="Forma de pagamento"
                 error={errors.paymentMethod?.message}
               >
-                <Input
-                  placeholder="Credito, PIX, boleto..."
-                  error={errors.paymentMethod?.message}
-                  {...register("paymentMethod")}
+                <Controller
+                  control={control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (value === "BOLETO" && purchasedAt) {
+                          setValue("firstPaymentDueAt", purchasedAt, { shouldValidate: true });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PIX">PIX</SelectItem>
+                        <SelectItem value="CREDIT_CARD">Cartao de credito</SelectItem>
+                        <SelectItem value="DEBIT_CARD">Cartao de debito</SelectItem>
+                        <SelectItem value="BOLETO">Boleto</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">Transferencia bancaria</SelectItem>
+                        <SelectItem value="CASH">Dinheiro</SelectItem>
+                        <SelectItem value="OTHER">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
               </Field>
-              <Field
-                label="Identificacao segura"
-                error={errors.paymentInstrument?.message}
-              >
-                <Input
-                  placeholder="Visa final 1234"
-                  error={errors.paymentInstrument?.message}
-                  {...register("paymentInstrument")}
-                />
-              </Field>
-              <Field label="Titular do pagamento">
-                <Input
-                  placeholder="Nome do titular"
-                  {...register("paymentHolder")}
-                />
-              </Field>
+              {paymentMethod === "CREDIT_CARD" && (
+                <>
+                  <Field label="Cartao utilizado" error={errors.creditCardId?.message}>
+                    <div className="flex gap-2">
+                      <Controller
+                        control={control}
+                        name="creditCardId"
+                        render={({ field }) => (
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              const card = creditCards.find((item) => item.id === value);
+                              if (card && purchasedAt) {
+                                setValue("firstPaymentDueAt", suggestedCardDueDate(purchasedAt, card), { shouldValidate: true });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Selecione um cartao" /></SelectTrigger>
+                            <SelectContent>
+                              {creditCards.map((card) => (
+                                <SelectItem key={card.id} value={card.id}>
+                                  {card.name} - final {card.lastFour}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      <Button type="button" variant="outline" onClick={() => setIsCreditCardModalOpen(true)}>
+                        <IconCreditCard /> Novo
+                      </Button>
+                    </div>
+                  </Field>
+                  <Field label="Numero de parcelas" error={errors.installmentCount?.message}>
+                    <Input type="number" min={1} max={36} {...register("installmentCount", { valueAsNumber: true })} />
+                  </Field>
+                  <Field label="Primeiro vencimento" error={errors.firstPaymentDueAt?.message}>
+                    <Input type="date" {...register("firstPaymentDueAt")} />
+                  </Field>
+                  {selectedCreditCard && (
+                    <div className="rounded-xl border p-3 text-sm">
+                      <p className="font-medium">{selectedCreditCard.bank} - {selectedCreditCard.brand} final {selectedCreditCard.lastFour}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Fecha dia {selectedCreditCard.closingDay}, vence dia {selectedCreditCard.dueDay}. Titular: {selectedCreditCard.holderName}.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+              {paymentMethod === "BOLETO" && (
+                <Field label="Vencimento do boleto" error={errors.firstPaymentDueAt?.message}>
+                  <Input type="date" {...register("firstPaymentDueAt")} />
+                </Field>
+              )}
+              {paymentMethod !== "CREDIT_CARD" && (
+                <>
+                  <Field label={paymentMethod === "BOLETO" ? "Identificacao do boleto" : "Identificacao segura"} error={errors.paymentInstrument?.message}>
+                    <Input
+                      placeholder={paymentMethod === "DEBIT_CARD" ? "Cartao final 1234" : "Referencia opcional"}
+                      error={errors.paymentInstrument?.message}
+                      {...register("paymentInstrument")}
+                    />
+                  </Field>
+                  <Field label="Titular do pagamento">
+                    <Input placeholder="Nome do titular" {...register("paymentHolder")} />
+                  </Field>
+                </>
+              )}
             </div>
           </section>
 
@@ -517,6 +754,8 @@ export function AcquisitionModal({
               {order.items.map((orderItem, index) => {
                 const selected = watchedItems[index]?.selected;
                 const itemError = errors.items?.[index];
+                const pricingMode =
+                  watchedItems[index]?.pricingMode ?? "UNIT";
 
                 return (
                   <div
@@ -558,7 +797,7 @@ export function AcquisitionModal({
                           )}
                         </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                           <Field
                             label="Quantidade comprada"
                             error={itemError?.acquiredQuantity?.message}
@@ -575,23 +814,108 @@ export function AcquisitionModal({
                             />
                           </Field>
                           <Field
-                            label="Custo unitario"
-                            error={itemError?.costUnitPrice?.message}
+                            label="Como informar o preco"
                           >
                             <Controller
                               control={control}
-                              name={`items.${index}.costUnitPrice`}
+                              name={`items.${index}.pricingMode`}
                               render={({ field }) => (
-                                <InputCurrency
-                                  variant="field"
+                                <Select
                                   disabled={!selected}
-                                  value={
-                                    Number.isFinite(field.value)
-                                      ? field.value
-                                      : 0
-                                  }
-                                  onChange={field.onChange}
-                                />
+                                  value={field.value}
+                                  onValueChange={(value) => {
+                                    const item = watchedItems[index];
+                                    if (value === "TOTAL") {
+                                      setValue(
+                                        `items.${index}.lineTotal`,
+                                        (Number(item.acquiredQuantity) || 0) *
+                                          (Number(item.costUnitPrice) || 0)
+                                      );
+                                    } else {
+                                      setValue(
+                                        `items.${index}.costUnitPrice`,
+                                        calculatePurchaseUnitPrice({
+                                          mode: "TOTAL",
+                                          quantity:
+                                            Number(item.acquiredQuantity) || 0,
+                                          unitPrice:
+                                            Number(item.costUnitPrice) || 0,
+                                          totalPrice:
+                                            Number(item.lineTotal) || 0,
+                                        })
+                                      );
+                                    }
+                                    field.onChange(value);
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="UNIT">
+                                      Valor unitario
+                                    </SelectItem>
+                                    <SelectItem value="TOTAL">
+                                      Total da quantidade
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
+                          </Field>
+                          <Field
+                            label={
+                              pricingMode === "TOTAL"
+                                ? "Valor total da quantidade"
+                                : "Custo unitario"
+                            }
+                            error={
+                              pricingMode === "TOTAL"
+                                ? itemError?.lineTotal?.message
+                                : itemError?.costUnitPrice?.message
+                            }
+                          >
+                            <Controller
+                              control={control}
+                              name={
+                                pricingMode === "TOTAL"
+                                  ? `items.${index}.lineTotal`
+                                  : `items.${index}.costUnitPrice`
+                              }
+                              render={({ field }) => (
+                                <>
+                                  <InputCurrency
+                                    variant="field"
+                                    disabled={!selected}
+                                    value={
+                                      Number.isFinite(field.value)
+                                        ? field.value
+                                        : 0
+                                    }
+                                    onChange={field.onChange}
+                                  />
+                                  {pricingMode === "TOTAL" && selected && (
+                                    <p className="text-xs text-emerald-300">
+                                      Equivale a{" "}
+                                      {formatCalculatedUnitPrice(
+                                        calculatePurchaseUnitPrice({
+                                          mode: "TOTAL",
+                                          quantity:
+                                            Number(
+                                              watchedItems[index]
+                                                ?.acquiredQuantity
+                                            ) || 0,
+                                          unitPrice: 0,
+                                          totalPrice:
+                                            Number(
+                                              watchedItems[index]?.lineTotal
+                                            ) || 0,
+                                        })
+                                      )}{" "}
+                                      por {orderItem.originalUnit}
+                                    </p>
+                                  )}
+                                </>
                               )}
                             />
                           </Field>
@@ -724,6 +1048,15 @@ export function AcquisitionModal({
         </form>
       </DialogContent>
     </Dialog>
+    <CreditCardModal
+      isOpen={isCreditCardModalOpen}
+      onClose={() => setIsCreditCardModalOpen(false)}
+      onSaved={(card) => {
+        setValue("creditCardId", card.id, { shouldValidate: true });
+        setValue("firstPaymentDueAt", suggestedCardDueDate(purchasedAt, card), { shouldValidate: true });
+      }}
+    />
+    </>
   );
 }
 

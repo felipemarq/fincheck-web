@@ -11,6 +11,13 @@ export type PurchaseOrderProgress =
   | "PARTIALLY_DELIVERED"
   | "DELIVERED";
 
+export type PurchaseOrderOperationalStatus =
+  | "PENDING_PURCHASE"
+  | "AWAITING_RECEIPT"
+  | "READY_FOR_DELIVERY"
+  | "IN_DELIVERY"
+  | "DELAYED";
+
 export type PurchaseOrderItemProgress =
   | "PENDING_PURCHASE"
   | "PARTIALLY_PURCHASED"

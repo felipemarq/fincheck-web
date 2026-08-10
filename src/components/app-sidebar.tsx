@@ -2,14 +2,18 @@ import * as React from "react";
 import {
   IconLayoutDashboard,
   IconClipboardList,
+  IconListDetails,
   IconUsers,
   IconBox,
+  IconCash,
+  IconShoppingCart,
+  IconCalculator,
+  IconFileInvoice,
 } from "@tabler/icons-react";
 import { Building, SquareUser } from "lucide-react";
 
 import type { Entity } from "@/app/entities/Entity";
-import wordmark from "@/assets/moneystack_wordmark.png";
-import icon from "@/assets/moneystack_maskable_512.png";
+import wordmark from "@/assets/jc-materiais-wordmark.png";
 import { useAuth } from "@/app/hooks/useAuth";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -31,9 +35,24 @@ const navMain = [
     icon: IconLayoutDashboard,
   },
   {
+    title: "Cotacoes",
+    url: "/quotations",
+    icon: IconFileInvoice,
+  },
+  {
     title: "Ordens de compra",
     url: "/orders",
     icon: IconClipboardList,
+  },
+  {
+    title: "Itens operacionais",
+    url: "/items",
+    icon: IconListDetails,
+  },
+  {
+    title: "Pedidos a fornecedores",
+    url: "/purchases",
+    icon: IconShoppingCart,
   },
   {
     title: "Clientes",
@@ -44,6 +63,16 @@ const navMain = [
     title: "Produtos",
     url: "/products",
     icon: IconBox,
+  },
+  {
+    title: "Precificacao",
+    url: "/pricing",
+    icon: IconCalculator,
+  },
+  {
+    title: "Financeiro",
+    url: "/finance",
+    icon: IconCash,
   },
 ];
 
@@ -72,11 +101,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <div className="flex items-center gap-2 px-2 py-1.5 font-medium">
-                <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-                  <img src={icon} alt="icon" className="h-6 w-6 rounded-md" />
-                </div>
-                <img src={wordmark} alt="wordmark" className="h-8" />
+              <div className="flex min-h-11 items-center px-2 py-1.5">
+                <img
+                  src={wordmark}
+                  alt="JC Materiais Hospitalares"
+                  className="h-10 w-auto max-w-full object-contain"
+                />
               </div>
             </SidebarMenuItem>
 

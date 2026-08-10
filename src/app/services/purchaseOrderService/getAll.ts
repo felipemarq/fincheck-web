@@ -1,5 +1,7 @@
 import type {
   PurchaseOrderLifecycleStatus,
+  PurchaseOrderOperationalStatus,
+  PurchaseOrderProgress,
   PurchaseOrderSummary,
 } from "@/app/entities/PurchaseOrder";
 import { httpClient } from "../httpClient";
@@ -9,6 +11,10 @@ export type GetPurchaseOrdersParams = {
   search?: string;
   customerId?: string;
   lifecycleStatus?: PurchaseOrderLifecycleStatus;
+  progress?: PurchaseOrderProgress;
+  operationalStatus?: PurchaseOrderOperationalStatus;
+  issuedFrom?: string;
+  issuedTo?: string;
 };
 
 export async function getAll({

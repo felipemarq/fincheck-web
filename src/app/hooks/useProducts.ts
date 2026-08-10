@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { QueryKeys } from "../config/QueryKeys";
+import { productQueryKeys } from "../config/QueryKeys";
 import {
   productService,
   type GetProductsParams,
@@ -8,12 +8,7 @@ import {
 
 export function useProducts(params: GetProductsParams, enabled = true) {
   const query = useQuery({
-    queryKey: [
-      QueryKeys.PRODUCTS,
-      params.entityId,
-      params.search,
-      params.active,
-    ],
+    queryKey: productQueryKeys.list(params),
     queryFn: () => productService.getAll(params),
     enabled: enabled && Boolean(params.entityId),
     staleTime: 30_000,

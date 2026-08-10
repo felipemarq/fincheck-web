@@ -7,12 +7,18 @@ interface PageLoaderProps {
 
 export const PageLoader = ({ logoPath }: PageLoaderProps) => {
   return (
-    <div className="bg-primary fixed top-0 left-0 h-full w-full grid place-items-center z-50">
+    <div className="bg-background fixed top-0 left-0 z-50 grid h-full w-full place-items-center">
       <div className="flex justify-center items-center gap-4 flex-col">
-        <div className="h-52 w-52">
-          {logoPath && <img src={logoPath} alt="logo" />}
+        <div className="flex h-44 w-64 items-center justify-center">
+          {logoPath && (
+            <img
+              src={logoPath}
+              alt="JC Materiais Hospitalares"
+              className="max-h-full max-w-full object-contain"
+            />
+          )}
         </div>
-        <Spinner className="text-primary fill-white h-10 w-10" />
+        <Spinner className="h-10 w-10 fill-primary text-muted" />
       </div>
     </div>
   );

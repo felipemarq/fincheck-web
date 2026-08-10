@@ -9,8 +9,15 @@ import Customers from "@/view/pages/Customers";
 import PurchaseOrders from "@/view/pages/PurchaseOrders";
 import PurchaseOrderDetails from "@/view/pages/PurchaseOrders/Details";
 import PurchaseOrderForm from "@/view/pages/PurchaseOrders/Form";
+import PurchaseOrderItems from "@/view/pages/PurchaseOrderItems";
 import OperationsDashboardPage from "@/view/pages/OperationsDashboard";
 import Products from "@/view/pages/Products";
+import Finance from "@/view/pages/Finance";
+import SupplierPurchases from "@/view/pages/SupplierPurchases";
+import PricingCalculator from "@/view/pages/PricingCalculator";
+import Quotations from "@/view/pages/Quotations";
+import QuotationDetails from "@/view/pages/Quotations/Details";
+import QuotationForm from "@/view/pages/Quotations/Form";
 
 const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
@@ -37,7 +44,19 @@ export const Router = () => {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<OperationsDashboardPage />} />
+              <Route path="/quotations" element={<Quotations />} />
+              <Route path="/quotations/new" element={<QuotationForm />} />
+              <Route
+                path="/quotations/:quotationId"
+                element={<QuotationDetails />}
+              />
+              <Route
+                path="/quotations/:quotationId/edit"
+                element={<QuotationForm />}
+              />
               <Route path="/orders" element={<PurchaseOrders />} />
+              <Route path="/items" element={<PurchaseOrderItems />} />
+              <Route path="/purchases" element={<SupplierPurchases />} />
               <Route path="/orders/new" element={<PurchaseOrderForm />} />
               <Route
                 path="/orders/:purchaseOrderId"
@@ -49,6 +68,8 @@ export const Router = () => {
               />
               <Route path="/customers" element={<Customers />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/pricing" element={<PricingCalculator />} />
+              <Route path="/finance" element={<Finance />} />
             </Route>
           </Route>
         </Routes>

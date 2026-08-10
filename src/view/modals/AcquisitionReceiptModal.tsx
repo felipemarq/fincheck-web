@@ -74,6 +74,7 @@ type Props = {
   onClose: () => void;
   order: PurchaseOrder;
   acquisition: Acquisition | null;
+  initialPurchaseOrderItemId?: string | null;
 };
 
 const EMPTY_RECEIPTS: AcquisitionReceipt[] = [];
@@ -85,7 +86,9 @@ function todayInput() {
 function makeValues(
   acquisition: Acquisition,
   receipts: AcquisitionReceipt[],
-  editing?: AcquisitionReceipt | null
+  editing?: AcquisitionReceipt | null,
+  initialPurchaseOrderItemId?: string | null,
+  purchaseOrderId?: string
 ): ReceiptFormData {
   const receivedByAcquisitionItem = new Map<string, number>();
 
@@ -96,32 +99,50 @@ function makeValues(
     )
     .flatMap((receipt) => receipt.items)
     .forEach((item) => {
+      const itemKey = `${item.acquisitionItemId}:${item.purchaseOrderItemId}`;
       receivedByAcquisitionItem.set(
-        item.acquisitionItemId,
-        (receivedByAcquisitionItem.get(item.acquisitionItemId) ?? 0) +
+        itemKey,
+        (receivedByAcquisitionItem.get(itemKey) ?? 0) +
           item.receivedQuantity
       );
     });
 
   const editingByAcquisitionItem = new Map(
-    editing?.items.map((item) => [item.acquisitionItemId, item]) ?? []
+    editing?.items.map((item) => [
+      `${item.acquisitionItemId}:${item.purchaseOrderItemId}`,
+      item,
+    ]) ?? []
+  );
+  const destinationEntries = acquisition.items.flatMap((item) =>
+    item.allocations
+      .filter(
+        (allocation) =>
+          !purchaseOrderId || allocation.purchaseOrderId === purchaseOrderId
+      )
+      .map((allocation) => ({ item, allocation }))
   );
 
   return {
     receivedAt: editing?.receivedAt.slice(0, 10) ?? todayInput(),
     notes: editing?.notes ?? "",
-    items: acquisition.items.map((item) => {
-      const current = editingByAcquisitionItem.get(item.id ?? "");
+    items: destinationEntries.map(({ item, allocation }) => {
+      const itemKey = `${item.id ?? ""}:${allocation.purchaseOrderItemId}`;
+      const current = editingByAcquisitionItem.get(itemKey);
       const remaining = Math.max(
-        item.acquiredQuantity -
-          (receivedByAcquisitionItem.get(item.id ?? "") ?? 0),
+        allocation.allocatedQuantity -
+          (receivedByAcquisitionItem.get(itemKey) ?? 0),
         0
       );
 
       return {
         acquisitionItemId: item.id ?? "",
-        purchaseOrderItemId: item.purchaseOrderItemId,
-        selected: Boolean(current) || (!editing && remaining > 0),
+        purchaseOrderItemId: allocation.purchaseOrderItemId,
+        selected:
+          Boolean(current) ||
+          (!editing &&
+            remaining > 0 &&
+            (!initialPurchaseOrderItemId ||
+              allocation.purchaseOrderItemId === initialPurchaseOrderItemId)),
         receivedQuantity: current?.receivedQuantity ?? remaining,
         notes: current?.notes ?? "",
       };
@@ -134,6 +155,7 @@ export function AcquisitionReceiptModal({
   onClose,
   order,
   acquisition,
+  initialPurchaseOrderItemId,
 }: Props) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
@@ -157,7 +179,13 @@ export function AcquisitionReceiptModal({
   } = useForm<ReceiptFormData>({
     resolver: zodResolver(receiptSchema),
     defaultValues: acquisition
-      ? makeValues(acquisition, [], null)
+      ? makeValues(
+          acquisition,
+          [],
+          null,
+          initialPurchaseOrderItemId,
+          order.id
+        )
       : undefined,
   });
 
@@ -166,8 +194,23 @@ export function AcquisitionReceiptModal({
       return;
     }
 
-    reset(makeValues(acquisition, receipts, editing));
-  }, [acquisition, editing, isOpen, receipts, reset]);
+    reset(
+      makeValues(
+        acquisition,
+        receipts,
+        editing,
+        initialPurchaseOrderItemId,
+        order.id
+      )
+    );
+  }, [
+    acquisition,
+    editing,
+    initialPurchaseOrderItemId,
+    isOpen,
+    receipts,
+    reset,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -178,6 +221,12 @@ export function AcquisitionReceiptModal({
   const createMutation = useMutation({ mutationFn: receiptService.create });
   const updateMutation = useMutation({ mutationFn: receiptService.update });
   const watchedItems = watch("items") ?? [];
+  const destinationEntries =
+    acquisition?.items.flatMap((item) =>
+      item.allocations
+        .filter((allocation) => allocation.purchaseOrderId === order.id)
+        .map((allocation) => ({ item, allocation }))
+    ) ?? [];
 
   const refresh = async () => {
     await Promise.all([
@@ -194,6 +243,9 @@ export function AcquisitionReceiptModal({
       }),
       queryClient.invalidateQueries({
         queryKey: [QueryKeys.PURCHASE_ORDERS, selectedEntityId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.PURCHASE_ORDER_ITEMS, selectedEntityId],
       }),
       queryClient.invalidateQueries({
         queryKey: [QueryKeys.OPERATIONS_DASHBOARD, selectedEntityId],
@@ -289,7 +341,7 @@ export function AcquisitionReceiptModal({
                 {acquisition.sellerName || "Compra sem vendedor informado"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {acquisition.items.length} itens - compra de{" "}
+                {destinationEntries.length} itens nesta ordem - compra de{" "}
                 {new Date(acquisition.purchasedAt).toLocaleDateString(
                   "pt-BR"
                 )}
@@ -367,11 +419,11 @@ export function AcquisitionReceiptModal({
                 Selecione somente o que foi conferido fisicamente.
               </p>
             </div>
-            {acquisition.items.map((item, index) => {
+            {destinationEntries.map(({ item, allocation }, index) => {
               const selected = watchedItems[index]?.selected;
               return (
                 <div
-                  key={item.id ?? item.purchaseOrderItemId}
+                  key={`${item.id}:${allocation.purchaseOrderItemId}`}
                   className="rounded-2xl border p-4"
                 >
                   <label className="flex cursor-pointer items-start gap-3">
@@ -382,12 +434,12 @@ export function AcquisitionReceiptModal({
                     />
                     <span>
                       <span className="block font-medium">
-                        {item.lineNumber}. {item.description}
+                        {allocation.lineNumber}. {item.description}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         Comprado:{" "}
-                        {item.acquiredQuantity.toLocaleString("pt-BR")}{" "}
-                        {item.originalUnit}
+                        {allocation.allocatedQuantity.toLocaleString("pt-BR")}{" "}
+                        {allocation.originalUnit}
                       </span>
                     </span>
                   </label>

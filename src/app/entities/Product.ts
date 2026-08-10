@@ -3,6 +3,7 @@ export type Product = {
   entityId: string;
   createdByUserId: string;
   updatedByUserId: string;
+  code?: string;
   name: string;
   brand: string;
   specification?: string;

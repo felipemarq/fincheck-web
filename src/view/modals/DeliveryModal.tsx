@@ -142,8 +142,12 @@ function makeValues(
   };
 }
 
-function optionalDate(value: string) {
-  return value ? new Date(`${value}T12:00:00`).toISOString() : null;
+function optionalDate(value: string, editing: boolean) {
+  return value
+    ? new Date(`${value}T12:00:00`).toISOString()
+    : editing
+      ? null
+      : undefined;
 }
 
 export function DeliveryModal({
@@ -207,8 +211,8 @@ export function DeliveryModal({
       entityId: selectedEntityId,
       purchaseOrderId: order.id,
       status: values.status,
-      dispatchedAt: optionalDate(values.dispatchedAt),
-      deliveredAt: optionalDate(values.deliveredAt),
+      dispatchedAt: optionalDate(values.dispatchedAt, Boolean(delivery)),
+      deliveredAt: optionalDate(values.deliveredAt, Boolean(delivery)),
       freightCost: values.freightCost || (delivery ? 0 : undefined),
       notes: values.notes.trim() || (delivery ? null : undefined),
       items: values.items

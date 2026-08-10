@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { InputCurrency } from "@/view/components/InputCurrency";
+import { ProductCombobox } from "@/view/components/ProductCombobox";
 import { ProductModal } from "@/view/modals/ProductModal";
 import { formatCurrency } from "./purchaseOrderPresentation";
 
@@ -420,14 +421,18 @@ export default function PurchaseOrderForm() {
   };
 
   const handleQuickProductCreated = (product: Product) => {
+    const itemIndex = quickProductItemIndex;
+
     setQuickCreatedProducts((current) => [
       product,
       ...current.filter((item) => item.id !== product.id),
     ]);
 
-    if (quickProductItemIndex !== null) {
-      handleProductChange(quickProductItemIndex, product.id, product);
-    }
+    requestAnimationFrame(() => {
+      if (itemIndex !== null) {
+        handleProductChange(itemIndex, product.id, product);
+      }
+    });
   };
 
   const onSubmit = handleSubmit(async (formData) => {
@@ -587,21 +592,13 @@ export default function PurchaseOrderForm() {
               render={({ field }) => {
                 const customerId =
                   field.value || order?.customerId || order?.customer.id || "";
-                const selectedCustomer =
-                  customers?.find((customer) => customer.id === customerId) ??
-                  (order?.customer.id === customerId
-                    ? order.customer
-                    : undefined);
-
                 return (
                   <Select
                     value={customerId}
                     onValueChange={handleCustomerChange}
                   >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente">
-                      {selectedCustomer?.tradeName || selectedCustomer?.legalName}
-                    </SelectValue>
+                    <SelectValue placeholder="Selecione o cliente" />
                   </SelectTrigger>
                   <SelectContent>
                     {activeCustomers?.map((customer) => (
@@ -697,6 +694,9 @@ export default function PurchaseOrderForm() {
               const selectedProduct = availableProducts.find(
                 (product) => product.id === item?.productId
               );
+              const productOptions = availableProducts.filter(
+                (product) => product.active || product.id === item?.productId
+              );
 
               return (
                 <div
@@ -741,39 +741,19 @@ export default function PurchaseOrderForm() {
                     control={control}
                     name={`items.${index}.productId`}
                     render={({ field: productField }) => (
-                      <Select
+                      <ProductCombobox
+                        products={productOptions}
                         value={productField.value}
                         onValueChange={(productId) =>
                           handleProductChange(index, productId)
                         }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue
-                            placeholder={
-                              isFetchingProducts
-                                ? "Carregando produtos..."
-                                : "Selecione o produto"
-                            }
-                          >
-                            {selectedProduct
-                              ? `${selectedProduct.name} - ${selectedProduct.brand}`
-                              : undefined}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableProducts
-                            .filter(
-                              (product) =>
-                                product.active ||
-                                product.id === productField.value
-                            )
-                            .map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} - {product.brand} - {product.packaging}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder={
+                          isFetchingProducts
+                            ? "Carregando produtos..."
+                            : "Selecione o produto"
+                        }
+                        disabled={isFetchingProducts}
+                      />
                     )}
                   />
                   {errors.items?.[index]?.productId?.message && (

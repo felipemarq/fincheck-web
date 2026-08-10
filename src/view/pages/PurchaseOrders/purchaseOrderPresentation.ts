@@ -59,3 +59,33 @@ export function lifecycleClass(status: PurchaseOrderLifecycleStatus) {
 
   return "bg-amber-500/10 text-amber-300";
 }
+
+export function progressClass(
+  status: PurchaseOrderProgress | PurchaseOrderItemProgress
+) {
+  if (status === "CANCELLED") {
+    return "bg-red-500/10 text-red-300";
+  }
+
+  if (
+    status === "READY_FOR_DELIVERY" ||
+    status === "RECEIVED_AWAITING_DELIVERY" ||
+    status === "DELIVERED"
+  ) {
+    return "bg-emerald-500/10 text-emerald-300";
+  }
+
+  if (
+    status === "PURCHASED" ||
+    status === "PURCHASED_AWAITING_ARRIVAL" ||
+    status === "PARTIALLY_RECEIVED"
+  ) {
+    return "bg-sky-500/10 text-sky-300";
+  }
+
+  if (status === "IN_DELIVERY" || status === "PARTIALLY_DELIVERED") {
+    return "bg-cyan-500/10 text-cyan-300";
+  }
+
+  return "bg-amber-500/10 text-amber-300";
+}

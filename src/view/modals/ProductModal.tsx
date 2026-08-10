@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { QueryKeys } from "@/app/config/QueryKeys";
+import { productQueryKeys } from "@/app/config/QueryKeys";
 import {
   PRODUCT_PACKAGING_OPTIONS,
   type Product,
@@ -36,6 +36,7 @@ import { InputCurrency } from "@/view/components/InputCurrency";
 
 const productSchema = z
   .object({
+    code: z.string().trim().max(80),
     name: z.string().trim().min(1, "Informe o nome do produto.").max(240),
     brand: z.string().trim().max(120),
     specification: z.string().trim().max(4000),
@@ -60,6 +61,7 @@ const productSchema = z
 type ProductFormData = z.infer<typeof productSchema>;
 
 const emptyProduct: ProductFormData = {
+  code: "",
   name: "",
   brand: "Outros",
   specification: "",
@@ -110,6 +112,7 @@ export function ProductModal({
     reset(
       product
         ? {
+            code: product.code ?? "",
             name: product.name,
             brand: product.brand,
             specification: product.specification ?? "",
@@ -153,6 +156,10 @@ export function ProductModal({
         savedProduct = await updateMutation.mutateAsync({
           entityId: selectedEntityId,
           productId: product.id,
+          code:
+            formData.code === (product.code ?? "")
+              ? undefined
+              : formData.code || null,
           name: formData.name,
           brand: formData.brand || "Outros",
           specification: formData.specification || null,
@@ -177,6 +184,7 @@ export function ProductModal({
       } else {
         savedProduct = await createMutation.mutateAsync({
           entityId: selectedEntityId,
+          code: formData.code || undefined,
           name: formData.name,
           brand: formData.brand || undefined,
           specification: formData.specification || undefined,
@@ -188,13 +196,31 @@ export function ProductModal({
           active: formData.active,
         });
         toast.success("Produto criado.");
+      }
+
+      onClose();
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+
+      queryClient.setQueryData<Product[]>(
+        productQueryKeys.list({ entityId: selectedEntityId }),
+        (currentProducts) => [
+          savedProduct,
+          ...(currentProducts?.filter(
+            (cachedProduct) => cachedProduct.id !== savedProduct.id
+          ) ?? []),
+        ]
+      );
+
+      if (!product) {
         onCreated?.(savedProduct);
       }
 
       await queryClient.invalidateQueries({
-        queryKey: [QueryKeys.PRODUCTS, selectedEntityId],
+        queryKey: productQueryKeys.entity(selectedEntityId),
       });
-      onClose();
     } catch (error) {
       treatAxiosError(error);
     }
@@ -230,6 +256,20 @@ export function ProductModal({
                 error={errors.name?.message}
                 {...register("name")}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="product-code">Codigo do produto</Label>
+              <Input
+                id="product-code"
+                placeholder="ERP ou SKU (opcional)"
+                error={errors.code?.message}
+                className="uppercase"
+                {...register("code")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Quando informado, deve ser unico nesta organizacao.
+              </p>
             </div>
 
             <div className="space-y-2">

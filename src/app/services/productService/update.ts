@@ -4,6 +4,7 @@ import { httpClient } from "../httpClient";
 export type UpdateProductParams = {
   entityId: string;
   productId: string;
+  code?: string | null;
   name?: string;
   brand?: string;
   specification?: string | null;

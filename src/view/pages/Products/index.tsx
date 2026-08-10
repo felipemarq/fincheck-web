@@ -150,7 +150,7 @@ export default function Products() {
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por produto, marca ou marketplace"
+          placeholder="Buscar por codigo, produto, marca ou marketplace"
           className="pl-9"
         />
       </div>
@@ -210,6 +210,13 @@ export default function Products() {
             <CardHeader className="pt-1">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
+                  {product.code && (
+                    <div className="mb-2">
+                      <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-2 py-1 font-mono text-xs font-semibold text-sky-400">
+                        {product.code}
+                      </span>
+                    </div>
+                  )}
                   <CardDescription className="flex items-center gap-1.5">
                     <IconBuildingStore className="size-4" />
                     {product.brand} - {getPackagingLabel(product.packaging)}

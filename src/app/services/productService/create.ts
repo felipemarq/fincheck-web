@@ -3,6 +3,7 @@ import { httpClient } from "../httpClient";
 
 export type CreateProductParams = {
   entityId: string;
+  code?: string;
   name: string;
   brand?: string;
   specification?: string;
