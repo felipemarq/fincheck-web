@@ -9,6 +9,7 @@ export enum QueryKeys {
   ACQUISITION_RECEIPTS = "acquisitionReceipts",
   DELIVERIES = "deliveries",
   INVOICES = "invoices",
+  RECEIVABLES = "receivables",
   OPERATIONS_DASHBOARD = "operationsDashboard",
   CREDIT_CARDS = "creditCards",
   PAYABLES = "payables",

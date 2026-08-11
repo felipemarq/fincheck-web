@@ -9,6 +9,7 @@ import {
   IconShoppingCart,
   IconCalculator,
   IconFileInvoice,
+  IconCashBanknote,
 } from "@tabler/icons-react";
 import { Building, SquareUser } from "lucide-react";
 
@@ -68,6 +69,11 @@ const navMain = [
     title: "Precificacao",
     url: "/pricing",
     icon: IconCalculator,
+  },
+  {
+    title: "Contas a receber",
+    url: "/receivables",
+    icon: IconCashBanknote,
   },
   {
     title: "Financeiro",

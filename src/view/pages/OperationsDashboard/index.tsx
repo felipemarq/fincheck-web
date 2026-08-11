@@ -441,15 +441,15 @@ export default function OperationsDashboardPage() {
               Contas a receber
             </CardTitle>
             <CardDescription>
-              Notas emitidas que ainda possuem saldo.
+              Carteira global de notas emitidas, independente do periodo acima.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <BigValue
               label={`${receivables.openCount} titulos em aberto`}
-              value={financial.receivableBalance}
+              value={receivables.openTotal}
             />
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               <SmallValue
                 label={`${receivables.overdueCount} vencidos`}
                 value={receivables.overdueTotal}
@@ -460,6 +460,11 @@ export default function OperationsDashboardPage() {
                 value={receivables.dueTodayTotal}
                 tone="amber"
               />
+              <SmallValue
+                label={`${receivables.dueNext7DaysCount} nos proximos 7 dias`}
+                value={receivables.dueNext7DaysTotal}
+                tone="sky"
+              />
             </div>
             {receivables.overdueCount > 0 && (
               <div className="flex items-start gap-3 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-100">
@@ -467,6 +472,11 @@ export default function OperationsDashboardPage() {
                 Existem recebimentos vencidos que precisam de acompanhamento.
               </div>
             )}
+            <Button className="w-full" variant="outline" asChild>
+              <Link to="/receivables">
+                Acompanhar contas a receber <IconArrowRight />
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </section>
@@ -544,14 +554,18 @@ function SmallValue({
 }: {
   label: string;
   value: number;
-  tone: "red" | "amber";
+  tone: "red" | "amber" | "sky";
 }) {
   return (
     <div className="rounded-xl border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p
         className={`mt-1 font-semibold ${
-          tone === "red" ? "text-red-300" : "text-amber-300"
+          tone === "red"
+            ? "text-red-300"
+            : tone === "sky"
+              ? "text-sky-300"
+              : "text-amber-300"
         }`}
       >
         {formatCurrency(value)}

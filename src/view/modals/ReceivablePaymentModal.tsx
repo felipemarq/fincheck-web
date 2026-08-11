@@ -119,6 +119,9 @@ export function ReceivablePaymentModal({
       queryClient.invalidateQueries({
         queryKey: [QueryKeys.OPERATIONS_DASHBOARD, selectedEntityId],
       }),
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.RECEIVABLES, selectedEntityId],
+      }),
     ]);
   };
 

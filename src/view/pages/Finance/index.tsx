@@ -10,6 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { QueryKeys } from "@/app/config/QueryKeys";
@@ -249,9 +250,9 @@ export default function Finance() {
         <SummaryCard label="Em aberto" value={data?.summary.openAmount ?? 0} detail={`${data?.summary.openCount ?? 0} parcela(s)`} icon={<IconCash />} />
         <SummaryCard label="Vencidas" value={data?.summary.overdueAmount ?? 0} detail={`${data?.summary.overdueCount ?? 0} em atraso`} icon={<IconAlertTriangle />} tone="red" />
         <SummaryCard label="Proximos 30 dias" value={data?.summary.dueNext30DaysAmount ?? 0} detail="Compromissos proximos" icon={<IconCreditCard />} tone="amber" />
-        <SummaryCard label="A receber" value={dashboard?.financial.receivableBalance ?? 0} detail={`${dashboard?.receivables.openCount ?? 0} faturamento(s) em aberto`} icon={<IconCash />} tone="sky" />
-        <SummaryCard label="Recebido" value={dashboard?.financial.receivedRevenue ?? 0} detail="Entradas confirmadas" icon={<IconCheck />} />
-        <SummaryCard label="Recebiveis vencidos" value={dashboard?.receivables.overdueTotal ?? 0} detail={`${dashboard?.receivables.overdueCount ?? 0} em atraso`} icon={<IconAlertTriangle />} tone="red" />
+        <SummaryCard label="A receber" value={dashboard?.receivables.openTotal ?? 0} detail={`${dashboard?.receivables.openCount ?? 0} faturamento(s) em aberto`} icon={<IconCash />} tone="sky" href="/receivables?status=PENDING" />
+        <SummaryCard label="Recebido" value={dashboard?.receivables.receivedTotal ?? 0} detail="Entradas confirmadas" icon={<IconCheck />} href="/receivables?status=RECEIVED" />
+        <SummaryCard label="Recebiveis vencidos" value={dashboard?.receivables.overdueTotal ?? 0} detail={`${dashboard?.receivables.overdueCount ?? 0} em atraso`} icon={<IconAlertTriangle />} tone="red" href="/receivables?status=OVERDUE" />
       </div>
 
       <section className="space-y-3">
@@ -531,12 +532,13 @@ export default function Finance() {
   );
 }
 
-function SummaryCard({ label, value, detail, icon, tone = "emerald" }: {
+function SummaryCard({ label, value, detail, icon, tone = "emerald", href }: {
   label: string;
   value: number;
   detail: string;
   icon: React.ReactNode;
   tone?: "emerald" | "red" | "amber" | "sky";
+  href?: string;
 }) {
   const tones = {
     emerald: "bg-emerald-500/10 text-emerald-400",
@@ -544,7 +546,7 @@ function SummaryCard({ label, value, detail, icon, tone = "emerald" }: {
     amber: "bg-amber-500/10 text-amber-400",
     sky: "bg-sky-500/10 text-sky-400",
   };
-  return (
+  const card = (
     <Card className="gap-3">
       <CardHeader className="flex-row items-start justify-between">
         <div><CardDescription>{label}</CardDescription><CardTitle className="mt-2 text-2xl">{formatCurrency(value)}</CardTitle></div>
@@ -553,6 +555,12 @@ function SummaryCard({ label, value, detail, icon, tone = "emerald" }: {
       <CardContent className="text-xs text-muted-foreground">{detail}</CardContent>
     </Card>
   );
+
+  return href ? (
+    <Link to={href} className="rounded-xl outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-emerald-400/70">
+      {card}
+    </Link>
+  ) : card;
 }
 
 function StatusBadge({ status, overdue }: { status: PayableStatus; overdue: boolean }) {

@@ -18,6 +18,7 @@ import PricingCalculator from "@/view/pages/PricingCalculator";
 import Quotations from "@/view/pages/Quotations";
 import QuotationDetails from "@/view/pages/Quotations/Details";
 import QuotationForm from "@/view/pages/Quotations/Form";
+import Receivables from "@/view/pages/Receivables";
 
 const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
@@ -70,6 +71,7 @@ export const Router = () => {
               <Route path="/products" element={<Products />} />
               <Route path="/pricing" element={<PricingCalculator />} />
               <Route path="/finance" element={<Finance />} />
+              <Route path="/receivables" element={<Receivables />} />
             </Route>
           </Route>
         </Routes>
