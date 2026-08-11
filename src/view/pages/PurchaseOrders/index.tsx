@@ -245,7 +245,8 @@ export default function PurchaseOrders() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por ordem ou cliente"
+              placeholder="Buscar por ordem, cliente ou produto"
+              aria-label="Buscar ordens por numero, cliente ou produto"
               className="pl-9"
             />
           </div>
