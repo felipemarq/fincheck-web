@@ -110,6 +110,7 @@ export default function SupplierPurchases() {
   );
   const modalPurchase = selected ?? editingFromUrl ?? null;
   const modalOpen = shouldCreate || Boolean(modalPurchase);
+  const hasActiveFilters = Boolean(search.trim()) || status !== "ALL";
 
   const closeModal = () => {
     setSelected(null);
@@ -148,7 +149,8 @@ export default function SupplierPurchases() {
                 className="pl-9"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Fornecedor, canal ou numero do pedido"
+                placeholder="Fornecedor, canal, numero do pedido ou produto"
+                aria-label="Pesquisar pedidos por fornecedor, canal, numero ou produto"
               />
             </div>
             <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
@@ -175,8 +177,16 @@ export default function SupplierPurchases() {
         {!isFetchingSupplierPurchases && !isError && supplierPurchases.length === 0 && (
           <div className="rounded-2xl border border-dashed bg-muted/10 px-5 py-14 text-center">
             <IconPackage className="mx-auto size-8 text-muted-foreground" />
-            <p className="mt-4 font-medium">Nenhum pedido registrado</p>
-            <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">Use o fluxo rapido em um item operacional ou registre aqui uma compra com varios produtos.</p>
+            <p className="mt-4 font-medium">
+              {hasActiveFilters
+                ? "Nenhum pedido encontrado"
+                : "Nenhum pedido registrado"}
+            </p>
+            <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+              {hasActiveFilters
+                ? "Tente outro fornecedor, canal, numero do pedido, produto ou estado."
+                : "Use o fluxo rapido em um item operacional ou registre aqui uma compra com varios produtos."}
+            </p>
           </div>
         )}
 
