@@ -355,6 +355,11 @@ export default function PurchaseOrderDetails() {
   }
 
   const canOperate = order.lifecycleStatus === "ACTIVE";
+  const invoiceableItems = order.items.filter(
+    (item) => item.invoicePendingQuantity > 0
+  );
+  const registeredInvoiceCount = invoices?.length ?? order.invoiceCount;
+  const hasRegisteredInvoices = registeredInvoiceCount > 0;
   const filteredItems = order.items.filter((item) =>
     matchesItemFilter(item, itemFilter)
   );
@@ -642,9 +647,18 @@ export default function PurchaseOrderDetails() {
                   </div>
                 </div>
                 <div className="flex flex-col items-start gap-2 md:items-end">
-                  <p className="font-semibold">
-                    {formatCurrency(item.officialTotal)}
-                  </p>
+                  <div className="md:text-right">
+                    <p className="text-xs text-muted-foreground">
+                      Total da linha
+                    </p>
+                    <p className="mt-1 font-semibold">
+                      {formatCurrency(item.officialTotal)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Valor unitario: {formatCurrency(item.saleUnitPrice)} /{" "}
+                      {item.originalUnit}
+                    </p>
+                  </div>
                   <span className="rounded-full bg-sky-500/10 px-2 py-1 text-xs text-sky-300">
                     {progressLabels[item.progress]}
                   </span>
@@ -1073,21 +1087,65 @@ export default function PurchaseOrderDetails() {
                   Faturamento e recebimentos
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Notas fiscais, vencimentos e pagamentos do cliente.
+                  Uma ordem pode possuir varias notas. Cada documento usa
+                  somente o saldo entregue que ainda nao foi faturado.
                 </CardDescription>
               </div>
-              {canOperate &&
-                order.items.some(
-                  (item) => item.invoicePendingQuantity > 0
-                ) && (
-                  <Button onClick={() => openInvoice()}>
+              {canOperate && (
+                <div className="sm:text-right">
+                  <Button
+                    disabled={!invoiceableItems.length || isFetchingInvoices}
+                    onClick={() => openInvoice()}
+                    title={
+                      invoiceableItems.length
+                        ? undefined
+                        : "Registre uma nova entrega para liberar itens para faturamento."
+                    }
+                  >
                     <IconFileInvoice />
-                    Registrar nota
+                    {hasRegisteredInvoices
+                      ? "Adicionar outra nota"
+                      : "Registrar primeira nota"}
                   </Button>
-                )}
+                  <p className="mt-2 max-w-xs text-xs text-muted-foreground">
+                    {invoiceableItems.length
+                      ? `${invoiceableItems.length} item(ns) disponivel(is) para uma nova nota.`
+                      : hasRegisteredInvoices
+                        ? "A proxima nota sera liberada depois que houver uma nova entrega sem faturamento."
+                        : "Registre uma entrega para liberar a primeira nota."}
+                  </p>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border bg-muted/10 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Notas registradas
+                </p>
+                <p className="mt-1 text-xl font-semibold">
+                  {registeredInvoiceCount}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/10 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Itens para nova nota
+                </p>
+                <p className="mt-1 text-xl font-semibold text-sky-300">
+                  {invoiceableItems.length}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/10 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Faturamento acumulado
+                </p>
+                <p className="mt-1 text-xl font-semibold text-emerald-300">
+                  {formatCurrency(order.invoicedRevenue)}
+                </p>
+              </div>
+            </div>
+
             {isFetchingInvoices && (
               <p className="py-6 text-sm text-muted-foreground">
                 Carregando notas fiscais...
@@ -1116,7 +1174,7 @@ export default function PurchaseOrderDetails() {
                 />
               )}
 
-            {invoices?.map((invoice) => (
+            {invoices?.map((invoice, index) => (
               <article
                 key={invoice.id}
                 className="rounded-2xl border bg-muted/10 p-4 sm:p-5"
@@ -1124,6 +1182,9 @@ export default function PurchaseOrderDetails() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-300">
+                        Documento {index + 1} de {invoices.length}
+                      </span>
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(
                           invoice.status
@@ -1250,6 +1311,26 @@ export default function PurchaseOrderDetails() {
                 )}
               </article>
             ))}
+
+            {canOperate &&
+              hasRegisteredInvoices &&
+              invoiceableItems.length > 0 && (
+                <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-sky-400/30 bg-sky-500/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium">
+                      Ha outro lote pronto para faturamento
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Crie uma nota independente para os {invoiceableItems.length}{" "}
+                      item(ns) que ainda possuem saldo entregue.
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => openInvoice()}>
+                    <IconFileInvoice />
+                    Criar proxima nota
+                  </Button>
+                </div>
+              )}
           </CardContent>
         </Card>
 

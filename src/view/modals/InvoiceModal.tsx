@@ -139,6 +139,10 @@ function makeValues(
   const firstAvailable =
     initialPurchaseOrderItemId ??
     order.items.find((item) => item.invoicePendingQuantity > 0)?.id;
+  const availableItems = order.items.filter(
+    (item) =>
+      currentItems.has(item.id ?? "") || item.invoicePendingQuantity > 0
+  );
 
   return {
     invoiceNumber: invoice?.invoiceNumber ?? "",
@@ -148,7 +152,7 @@ function makeValues(
     otherDeductions: invoice?.otherDeductions ?? 0,
     status: invoice?.status ?? "ISSUED",
     notes: invoice?.notes ?? "",
-    items: order.items.map((item) => {
+    items: availableItems.map((item) => {
       const current = currentItems.get(item.id ?? "");
       const available =
         item.invoicePendingQuantity +
@@ -293,10 +297,21 @@ export function InvoiceModal({
             {isEditing ? "Editar nota fiscal" : "Registrar nota fiscal"}
           </DialogTitle>
           <DialogDescription>
-            Fature somente itens ja separados para entrega e acompanhe o
-            saldo que o cliente ainda deve pagar.
+            Cada nota e independente e pode representar uma entrega parcial.
+            Somente o saldo separado para entrega e ainda nao faturado fica
+            disponivel.
           </DialogDescription>
         </DialogHeader>
+
+        {!isEditing && (
+          <div className="rounded-xl border border-sky-400/25 bg-sky-500/[0.04] p-4 text-sm">
+            <p className="font-medium text-sky-200">Nova nota desta ordem</p>
+            <p className="mt-1 text-muted-foreground">
+              As notas anteriores serao preservadas. Esta nota possui {items.length}{" "}
+              item(ns) com saldo disponivel para faturamento.
+            </p>
+          </div>
+        )}
 
         {financialLocked && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-400/25 bg-amber-400/5 p-4 text-sm text-amber-100">
@@ -363,14 +378,22 @@ export function InvoiceModal({
               </p>
             </div>
 
-            {order.items.map((item, index) => {
+            {items.map((formItem, index) => {
+              const item = order.items.find(
+                (entry) => entry.id === formItem.purchaseOrderItemId
+              );
+
+              if (!item) {
+                return null;
+              }
+
               const current = invoice?.items.find(
                 (entry) => entry.purchaseOrderItemId === item.id
               );
               const available =
                 item.invoicePendingQuantity +
                 (current?.invoicedQuantity ?? 0);
-              const selected = items[index]?.selected;
+              const selected = formItem.selected;
 
               return (
                 <div key={item.id} className="rounded-2xl border p-4">
