@@ -4,6 +4,7 @@ import {
   IconArrowRight,
   IconCalendarDue,
   IconClipboardList,
+  IconFileTypePdf,
   IconFilter,
   IconPlus,
   IconSearch,
@@ -34,6 +35,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  PurchaseOrderBatchExportModal,
+  type PurchaseOrderBatchExportFilters,
+} from "@/view/modals/PurchaseOrderBatchExportModal";
 import {
   formatCurrency,
   formatDate,
@@ -89,6 +94,7 @@ export default function PurchaseOrders() {
   const { activeEntity, selectedEntityId } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+  const [isBatchExportOpen, setIsBatchExportOpen] = useState(false);
   const deferredSearch = useDeferredValue(search);
   const lifecycleFilter = readFilter(
     searchParams.get("lifecycleStatus"),
@@ -159,6 +165,15 @@ export default function PurchaseOrders() {
     setSearchParams({}, { replace: true });
   }
 
+  const batchExportFilters: PurchaseOrderBatchExportFilters = {
+    search,
+    lifecycleStatus: lifecycleFilter,
+    progress: progressFilter,
+    operationalStatus: operationalFilter,
+    issuedFrom,
+    issuedTo,
+  };
+
   return (
     <div className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-7">
       <section className="relative overflow-hidden rounded-2xl border bg-[radial-gradient(circle_at_82%_12%,rgba(16,185,129,0.22),transparent_34%),radial-gradient(circle_at_18%_90%,rgba(245,158,11,0.10),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.04),transparent)] p-5 sm:p-7">
@@ -177,12 +192,25 @@ export default function PurchaseOrders() {
               etapas desta mesma linha operacional.
             </p>
           </div>
-          <Button size="lg" className="w-full lg:w-auto" asChild>
-            <Link to="/orders/new">
-              <IconPlus />
-              Nova ordem
-            </Link>
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="w-full lg:w-auto"
+              disabled={!selectedEntityId}
+              onClick={() => setIsBatchExportOpen(true)}
+            >
+              <IconFileTypePdf />
+              Exportar lote
+            </Button>
+            <Button size="lg" className="w-full lg:w-auto" asChild>
+              <Link to="/orders/new">
+                <IconPlus />
+                Nova ordem
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -467,6 +495,16 @@ export default function PurchaseOrders() {
           </Card>
         ))}
       </div>
+
+      {isBatchExportOpen && selectedEntityId && (
+        <PurchaseOrderBatchExportModal
+          isOpen
+          onClose={() => setIsBatchExportOpen(false)}
+          entityId={selectedEntityId}
+          entityName={activeEntity?.name}
+          initialFilters={batchExportFilters}
+        />
+      )}
     </div>
   );
 }
