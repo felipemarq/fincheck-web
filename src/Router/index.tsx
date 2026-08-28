@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthGuard } from "./AuthGuard";
+import { PersonalFeatureGuard } from "./PersonalFeatureGuard";
 import AppLayout from "@/view/Layouts/AppLayout";
 import { LoginLayout } from "@/view/Layouts/LoginLayout";
 import { PageLoader } from "@/view/components/PageLoader";
@@ -24,6 +25,7 @@ const Register = lazy(() => import("@/view/pages/Register"));
 const Login = lazy(() => import("@/view/pages/Login"));
 const ForgotPassword = lazy(() => import("@/view/pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/view/pages/ResetPassword"));
+const BodyWeight = lazy(() => import("@/view/pages/BodyWeight"));
 
 export const Router = () => {
   return (
@@ -72,6 +74,9 @@ export const Router = () => {
               <Route path="/pricing" element={<PricingCalculator />} />
               <Route path="/finance" element={<Finance />} />
               <Route path="/receivables" element={<Receivables />} />
+              <Route element={<PersonalFeatureGuard feature="BODY_WEIGHT" />}>
+                <Route path="/me/peso" element={<BodyWeight />} />
+              </Route>
             </Route>
           </Route>
         </Routes>
