@@ -15,6 +15,8 @@ export enum QueryKeys {
   PAYABLES = "payables",
   QUOTATIONS = "quotations",
   BODY_WEIGHTS = "bodyWeights",
+  PERSONAL_HEALTH_PROFILE = "personalHealthProfile",
+  DAILY_CALORIES = "dailyCalories",
 }
 
 type ProductsQueryParams = {

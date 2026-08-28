@@ -61,6 +61,10 @@ novo e limitado a cartoes, parcelas de aquisicoes e recebimentos das notas.
 - `/finance`: contas a pagar, vencidas, proximos 30 dias, contas a receber,
   recebimentos, gestao segura de cartoes e quitacao das parcelas abertas de uma
   fatura pelo mes de vencimento
+- `/me/peso`: area pessoal fora da organizacao ativa, acessivel somente com a
+  feature individual `BODY_WEIGHT`; registra peso e calorias por dia, permite
+  meta e data-alvo opcionais, mostra media movel de sete dias, comparativos de
+  7 e 30 dias e balanco calorico com cobertura explicita
 - seletor de produto em cada item da ordem, com preenchimento automatico dos
   dados e sugestao do ultimo preco vendido
 - busca de produtos por codigo, nome, marca, especificacao e embalagem, sem
@@ -130,6 +134,17 @@ Todas as consultas sao delimitadas pela organizacao ativa:
 - `POST /entities/{entityId}/purchase-orders/{purchaseOrderId}/invoices/{invoiceId}/payments`
 - `PATCH /entities/{entityId}/purchase-orders/{purchaseOrderId}/invoices/{invoiceId}/payments/{paymentId}`
 - `GET /entities/{entityId}/operations-dashboard`
+
+As rotas pessoais nao usam organizacao e derivam o proprietario do token:
+
+- `GET|PUT /me/health-profile`
+- `GET /me/body-weights`
+- `PUT|DELETE /me/body-weights/{measuredOn}`
+- `GET /me/daily-calories`
+- `PUT|DELETE /me/daily-calories/{loggedOn}`
+
+O gasto diario exibido pode vir da estimativa com atividade ou de um valor
+manual. Dias sem calorias ficam como ausentes e nao entram no deficit semanal.
 
 O frontend preserva os campos opcionais, os snapshots de endereco, os snapshots
 do produto e o total oficial retornado pela API. O valor calculado dos itens e

@@ -1,13 +1,16 @@
 import {
+  IconActivity,
   IconCalendar,
   IconChartLine,
   IconCheck,
+  IconFlame,
   IconHistory,
+  IconInfoCircle,
   IconLock,
-  IconPencil,
   IconRefresh,
   IconScale,
-  IconTrash,
+  IconSettings,
+  IconTargetArrow,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO, subDays } from "date-fns";
@@ -18,8 +21,13 @@ import { toast } from "sonner";
 
 import { QueryKeys } from "@/app/config/QueryKeys";
 import type { BodyWeightEntry } from "@/app/entities/BodyWeightEntry";
+import type { DailyCalorieEntry } from "@/app/entities/DailyCalorieEntry";
 import { useBodyWeights } from "@/app/hooks/useBodyWeights";
+import { useDailyCalories } from "@/app/hooks/useDailyCalories";
+import { usePersonalHealthProfile } from "@/app/hooks/usePersonalHealthProfile";
 import { bodyWeightService } from "@/app/services/bodyWeightService";
+import { dailyCalorieService } from "@/app/services/dailyCalorieService";
+import { personalHealthService } from "@/app/services/personalHealthService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,8 +40,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/view/components/ui/tabs";
+import { calculateMovingAverage, comparePeriods } from "./analytics";
+import { CalorieWeek } from "./CalorieWeek";
+import { CalorieHistory, WeightHistory } from "./HealthHistory";
+import { HealthProfileDialog } from "./HealthProfileDialog";
+import { WeightChart } from "./WeightChart";
 
 type WeightRange = "30" | "90" | "365" | "all";
+type EntryTab = "weight" | "calories";
 
 const rangeOptions: Array<{ value: WeightRange; label: string }> = [
   { value: "30", label: "30 dias" },
@@ -49,105 +69,236 @@ function formatWeight(value: number) {
   }).format(value);
 }
 
+function formatKcal(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 0,
+  }).format(Math.abs(value));
+}
+
 function formatEntryDate(value: string, long = false) {
-  const pattern = long ? "EEEE, dd 'de' MMMM" : "dd/MM/yyyy";
-  const label = format(parseISO(value), pattern, { locale: ptBR });
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  const pattern = long ? "dd 'de' MMMM 'de' yyyy" : "dd/MM/yyyy";
+  return format(parseISO(value), pattern, { locale: ptBR });
 }
 
 function formatDelta(value: number | null) {
   if (value === null) return "Sem base";
   const prefix = value > 0 ? "+" : "";
-  return `${prefix}${formatWeight(value)} kg`;
+  return prefix + formatWeight(value) + " kg";
 }
 
-function getDeltaSinceDays(entries: BodyWeightEntry[], days: number) {
-  const latest = entries.at(-1);
-  if (!latest) return null;
-
-  const target = format(subDays(parseISO(latest.measuredOn), days), "yyyy-MM-dd");
-  const baseline = entries.filter((entry) => entry.measuredOn <= target).at(-1);
-  return baseline ? latest.weightKg - baseline.weightKg : null;
+function formatWeeklyBalance(value: number | null) {
+  if (value === null) return "Sem calculo";
+  if (value >= 0) return "Deficit " + formatKcal(value);
+  return "Superavit " + formatKcal(value);
 }
 
 export default function BodyWeight() {
   const today = format(new Date(), "yyyy-MM-dd");
   const queryClient = useQueryClient();
   const [range, setRange] = useState<WeightRange>("30");
+  const [entryTab, setEntryTab] = useState<EntryTab>("weight");
   const [measuredOn, setMeasuredOn] = useState(today);
   const [weightKg, setWeightKg] = useState<number | null>(null);
-  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [editingWeightDate, setEditingWeightDate] = useState<string | null>(null);
+  const [loggedOn, setLoggedOn] = useState(today);
+  const [caloriesConsumed, setCaloriesConsumed] = useState<number | null>(null);
+  const [editingCalorieDate, setEditingCalorieDate] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
-  const queryParams =
+  const weightQuery = useBodyWeights({ to: today });
+  const calorieQuery = useDailyCalories({ to: today });
+  const profileQuery = usePersonalHealthProfile(today);
+  const upsertWeightMutation = useMutation({ mutationFn: bodyWeightService.upsert });
+  const deleteWeightMutation = useMutation({ mutationFn: bodyWeightService.remove });
+  const upsertCalorieMutation = useMutation({ mutationFn: dailyCalorieService.upsert });
+  const deleteCalorieMutation = useMutation({ mutationFn: dailyCalorieService.remove });
+  const profileMutation = useMutation({ mutationFn: personalHealthService.upsert });
+
+  const allWeights = weightQuery.data ?? [];
+  const allCalories = calorieQuery.data?.entries ?? [];
+  const rangeFrom =
     range === "all"
-      ? { to: today }
-      : {
-          from: format(subDays(new Date(), Number(range) - 1), "yyyy-MM-dd"),
-          to: today,
-        };
-  const { data: entries = [], isFetching, isError, refetch } =
-    useBodyWeights(queryParams);
-  const upsertMutation = useMutation({ mutationFn: bodyWeightService.upsert });
-  const deleteMutation = useMutation({ mutationFn: bodyWeightService.remove });
+      ? null
+      : format(subDays(parseISO(today), Number(range) - 1), "yyyy-MM-dd");
+  const weights = rangeFrom
+    ? allWeights.filter((entry) => entry.measuredOn >= rangeFrom)
+    : allWeights;
+  const movingPoints = calculateMovingAverage(allWeights).filter(
+    (entry) => !rangeFrom || entry.measuredOn >= rangeFrom
+  );
+  const latestWeight = allWeights.at(-1);
+  const latestMovingPoint = calculateMovingAverage(allWeights).at(-1);
+  const weeklyComparison = comparePeriods(allWeights, 7, today);
+  const monthlyComparison = comparePeriods(allWeights, 30, today);
+  const weekFrom = format(subDays(parseISO(today), 6), "yyyy-MM-dd");
+  const weeklyCalories = allCalories.filter(
+    (entry) => entry.loggedOn >= weekFrom && entry.loggedOn <= today
+  );
+  const weeklyConsumed = weeklyCalories.reduce(
+    (sum, entry) => sum + entry.caloriesConsumed,
+    0
+  );
+  const calculableWeeklyCalories = weeklyCalories.filter(
+    (entry) => entry.balanceKcal !== null
+  );
+  const weeklyBalance =
+    calculableWeeklyCalories.length === 0
+      ? null
+      : calculableWeeklyCalories.reduce(
+          (sum, entry) => sum + (entry.balanceKcal ?? 0),
+          0
+        );
+  const profile = profileQuery.data?.profile ?? null;
+  const calculation = profileQuery.data?.calculation;
 
-  const latestEntry = entries.at(-1);
-  const firstEntry = entries.at(0);
-  const periodDelta =
-    latestEntry && firstEntry && latestEntry.id !== firstEntry.id
-      ? latestEntry.weightKg - firstEntry.weightKg
-      : null;
-  const sevenDayDelta = getDeltaSinceDays(entries, 7);
-
-  const resetForm = () => {
+  const resetWeightForm = () => {
     setMeasuredOn(today);
     setWeightKg(null);
-    setEditingDate(null);
+    setEditingWeightDate(null);
   };
 
-  const saveEntry = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const resetCalorieForm = () => {
+    setLoggedOn(today);
+    setCaloriesConsumed(null);
+    setEditingCalorieDate(null);
+  };
 
+  const invalidateWeightDependencies = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BODY_WEIGHTS] }),
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.PERSONAL_HEALTH_PROFILE],
+      }),
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.DAILY_CALORIES] }),
+    ]);
+  };
+
+  const saveWeight = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (!weightKg || weightKg < 20 || weightKg > 500) {
       toast.error("Informe um peso entre 20 e 500 kg.");
       return;
     }
 
     try {
-      await upsertMutation.mutateAsync({ measuredOn, weightKg });
-      await queryClient.invalidateQueries({
-        queryKey: [QueryKeys.BODY_WEIGHTS],
-      });
-      toast.success(editingDate ? "Pesagem atualizada." : "Pesagem registrada.");
-      resetForm();
+      await upsertWeightMutation.mutateAsync({ measuredOn, weightKg });
+      await invalidateWeightDependencies();
+      toast.success(
+        editingWeightDate ? "Pesagem atualizada." : "Pesagem registrada."
+      );
+      resetWeightForm();
     } catch (error) {
       treatAxiosError(error);
     }
   };
 
-  const editEntry = (entry: BodyWeightEntry) => {
+  const saveCalories = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (
+      caloriesConsumed === null ||
+      caloriesConsumed < 0 ||
+      caloriesConsumed > 20_000 ||
+      !Number.isInteger(caloriesConsumed)
+    ) {
+      toast.error("Informe um total entre 0 e 20.000 kcal.");
+      return;
+    }
+
+    try {
+      await upsertCalorieMutation.mutateAsync({ loggedOn, caloriesConsumed });
+      await queryClient.invalidateQueries({ queryKey: [QueryKeys.DAILY_CALORIES] });
+      toast.success(
+        editingCalorieDate ? "Calorias atualizadas." : "Calorias registradas."
+      );
+      resetCalorieForm();
+    } catch (error) {
+      treatAxiosError(error);
+    }
+  };
+
+  const editWeight = (entry: BodyWeightEntry) => {
+    setEntryTab("weight");
     setMeasuredOn(entry.measuredOn);
     setWeightKg(entry.weightKg);
-    setEditingDate(entry.measuredOn);
+    setEditingWeightDate(entry.measuredOn);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const deleteEntry = async (entry: BodyWeightEntry) => {
-    const confirmed = window.confirm(
-      `Excluir a pesagem de ${formatEntryDate(entry.measuredOn)}?`
-    );
-    if (!confirmed) return;
+  const editCalories = (entry: DailyCalorieEntry) => {
+    setEntryTab("calories");
+    setLoggedOn(entry.loggedOn);
+    setCaloriesConsumed(entry.caloriesConsumed);
+    setEditingCalorieDate(entry.loggedOn);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const deleteWeight = async (entry: BodyWeightEntry) => {
+    if (!window.confirm("Excluir a pesagem de " + formatEntryDate(entry.measuredOn) + "?")) {
+      return;
+    }
 
     try {
-      await deleteMutation.mutateAsync(entry.measuredOn);
-      await queryClient.invalidateQueries({
-        queryKey: [QueryKeys.BODY_WEIGHTS],
-      });
-      if (editingDate === entry.measuredOn) resetForm();
+      await deleteWeightMutation.mutateAsync(entry.measuredOn);
+      await invalidateWeightDependencies();
+      if (editingWeightDate === entry.measuredOn) resetWeightForm();
       toast.success("Pesagem excluida.");
     } catch (error) {
       treatAxiosError(error);
     }
   };
+
+  const deleteCalories = async (entry: DailyCalorieEntry) => {
+    if (!window.confirm("Excluir as calorias de " + formatEntryDate(entry.loggedOn) + "?")) {
+      return;
+    }
+
+    try {
+      await deleteCalorieMutation.mutateAsync(entry.loggedOn);
+      await queryClient.invalidateQueries({ queryKey: [QueryKeys.DAILY_CALORIES] });
+      if (editingCalorieDate === entry.loggedOn) resetCalorieForm();
+      toast.success("Registro de calorias excluido.");
+    } catch (error) {
+      treatAxiosError(error);
+    }
+  };
+
+  const saveProfile = async (
+    values: Parameters<typeof HealthProfileDialog>[0]["onSave"] extends (
+      input: infer T
+    ) => Promise<void>
+      ? T
+      : never
+  ) => {
+    try {
+      await profileMutation.mutateAsync({ onDate: today, ...values });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.PERSONAL_HEALTH_PROFILE],
+        }),
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.DAILY_CALORIES] }),
+      ]);
+      toast.success("Meta e gasto atualizados.");
+      setProfileOpen(false);
+    } catch (error) {
+      treatAxiosError(error);
+    }
+  };
+
+  const goalDifference =
+    latestWeight && profile?.targetWeightKg !== null && profile?.targetWeightKg !== undefined
+      ? latestWeight.weightKg - profile.targetWeightKg
+      : null;
+  const goalHelper =
+    goalDifference === null
+      ? profile?.targetWeightKg
+        ? "Registre seu peso para comparar"
+        : "Defina um objetivo opcional"
+      : Math.abs(goalDifference) < 0.05
+        ? "Meta alcancada"
+        : formatWeight(Math.abs(goalDifference)) +
+          " kg " +
+          (goalDifference > 0 ? "acima" : "abaixo") +
+          " da meta";
 
   return (
     <div className="flex flex-col gap-6 px-4 py-5 lg:px-6 lg:py-7">
@@ -157,17 +308,17 @@ export default function BodyWeight() {
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-3">
             <div className="flex size-11 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-500/10 text-sky-300">
-              <IconScale className="size-6" />
+              <IconActivity className="size-6" />
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
               Espaco pessoal
             </p>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              Evolucao de peso
+              Peso, meta e energia
             </h2>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-              Registre sua pesagem diaria e acompanhe a tendencia com calma,
-              consistencia e contexto.
+              Registre peso e calorias, acompanhe tendencias e compare periodos
+              sem transformar dias ausentes em resultados artificiais.
             </p>
           </div>
           <div className="flex items-center gap-2 self-start rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 lg:self-auto">
@@ -177,108 +328,186 @@ export default function BodyWeight() {
         </div>
       </section>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.55fr)]">
-        <Card className="overflow-hidden xl:sticky xl:top-6">
-          <div className="h-1 bg-gradient-to-r from-sky-400 via-emerald-400 to-lime-300" />
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.55fr)]">
+        <Card className="min-w-0 overflow-hidden xl:sticky xl:top-6">
+          <div className="h-1 bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-300" />
           <CardHeader className="pt-1">
-            <CardTitle>
-              {editingDate ? "Editar pesagem" : "Registrar pesagem"}
-            </CardTitle>
+            <CardTitle>Registro diario</CardTitle>
             <CardDescription>
-              Uma data possui apenas um registro. Salvar novamente atualiza o
-              valor existente.
+              Cada data possui um registro de peso e um de calorias. Salvar
+              novamente atualiza o valor daquele dia.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-5" onSubmit={saveEntry}>
-              <div className="space-y-2">
-                <Label htmlFor="weight-date">Data da medicao</Label>
-                <Input
-                  id="weight-date"
-                  type="date"
-                  max={today}
-                  value={measuredOn}
-                  onChange={(event) => setMeasuredOn(event.target.value)}
-                  required
-                />
-              </div>
+            <Tabs value={entryTab} onValueChange={(value) => setEntryTab(value as EntryTab)}>
+              <TabsList className="mb-5 grid w-full grid-cols-2">
+                <TabsTrigger value="weight">
+                  <IconScale /> Peso
+                </TabsTrigger>
+                <TabsTrigger value="calories">
+                  <IconFlame /> Calorias
+                </TabsTrigger>
+              </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="weight-value">Peso</Label>
-                <NumericFormat
-                  id="weight-value"
-                  customInput={Input}
-                  value={weightKg ?? ""}
-                  decimalScale={3}
-                  decimalSeparator=","
-                  thousandSeparator="."
-                  suffix=" kg"
-                  allowNegative={false}
-                  inputMode="decimal"
-                  placeholder="Ex.: 82,4 kg"
-                  onValueChange={({ floatValue }) =>
-                    setWeightKg(floatValue ?? null)
-                  }
-                />
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Voce pode informar ate tres casas decimais.
-                </p>
-              </div>
+              <TabsContent value="weight">
+                <form className="space-y-5" onSubmit={saveWeight}>
+                  <div className="space-y-2">
+                    <Label htmlFor="weight-date">Data da medicao</Label>
+                    <Input
+                      id="weight-date"
+                      type="date"
+                      max={today}
+                      value={measuredOn}
+                      onChange={(event) => setMeasuredOn(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="weight-value">Peso</Label>
+                    <NumericFormat
+                      id="weight-value"
+                      customInput={Input}
+                      value={weightKg ?? ""}
+                      decimalScale={3}
+                      decimalSeparator=","
+                      thousandSeparator="."
+                      suffix=" kg"
+                      allowNegative={false}
+                      inputMode="decimal"
+                      placeholder="Ex.: 82,4 kg"
+                      onValueChange={({ floatValue }) =>
+                        setWeightKg(floatValue ?? null)
+                      }
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Voce pode informar ate tres casas decimais.
+                    </p>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    isLoading={upsertWeightMutation.isPending}
+                  >
+                    <IconCheck />
+                    {editingWeightDate ? "Salvar alteracao" : "Registrar peso"}
+                  </Button>
+                  {editingWeightDate && (
+                    <Button type="button" variant="outline" className="w-full" onClick={resetWeightForm}>
+                      Cancelar edicao
+                    </Button>
+                  )}
+                </form>
+              </TabsContent>
 
-              <Button
-                type="submit"
-                className="w-full"
-                isLoading={upsertMutation.isPending}
-              >
-                <IconCheck />
-                {editingDate ? "Salvar alteracao" : "Registrar peso"}
-              </Button>
-
-              {editingDate && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={resetForm}
-                >
-                  Cancelar edicao
-                </Button>
-              )}
-            </form>
+              <TabsContent value="calories">
+                <form className="space-y-5" onSubmit={saveCalories}>
+                  <div className="space-y-2">
+                    <Label htmlFor="calorie-date">Data do consumo</Label>
+                    <Input
+                      id="calorie-date"
+                      type="date"
+                      max={today}
+                      value={loggedOn}
+                      onChange={(event) => setLoggedOn(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="calorie-value">Total consumido no dia</Label>
+                    <NumericFormat
+                      id="calorie-value"
+                      customInput={Input}
+                      value={caloriesConsumed ?? ""}
+                      decimalScale={0}
+                      decimalSeparator=","
+                      thousandSeparator="."
+                      suffix=" kcal"
+                      allowNegative={false}
+                      inputMode="numeric"
+                      placeholder="Ex.: 2.150 kcal"
+                      onValueChange={({ floatValue }) =>
+                        setCaloriesConsumed(floatValue ?? null)
+                      }
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Informe o total do dia. Refeicoes individuais ficam fora desta versao.
+                    </p>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    isLoading={upsertCalorieMutation.isPending}
+                  >
+                    <IconCheck />
+                    {editingCalorieDate ? "Salvar alteracao" : "Registrar calorias"}
+                  </Button>
+                  {editingCalorieDate && (
+                    <Button type="button" variant="outline" className="w-full" onClick={resetCalorieForm}>
+                      Cancelar edicao
+                    </Button>
+                  )}
+                </form>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
+          <Card className="overflow-hidden border-emerald-400/15 bg-[linear-gradient(115deg,rgba(16,185,129,0.08),transparent_55%)]">
+            <CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300">
+                  <IconTargetArrow className="size-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Sua meta
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold">
+                    {profile?.targetWeightKg
+                      ? formatWeight(profile.targetWeightKg) + " kg"
+                      : "Ainda nao definida"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{goalHelper}</p>
+                  {profile?.targetDate && (
+                    <p className="mt-1 text-xs text-emerald-300">
+                      Data-alvo: {formatEntryDate(profile.targetDate, true)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setProfileOpen(true)}>
+                <IconSettings /> Configurar meta e gasto
+              </Button>
+            </CardContent>
+          </Card>
+
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Peso atual"
-              value={latestEntry ? `${formatWeight(latestEntry.weightKg)} kg` : "--"}
-              helper={
-                latestEntry
-                  ? formatEntryDate(latestEntry.measuredOn)
-                  : "Nenhuma pesagem"
-              }
+              value={latestWeight ? formatWeight(latestWeight.weightKg) + " kg" : "--"}
+              helper={latestWeight ? formatEntryDate(latestWeight.measuredOn) : "Nenhuma pesagem"}
               icon={<IconScale className="size-5" />}
               tone="sky"
             />
             <MetricCard
-              label="Variacao em 7 dias"
-              value={formatDelta(sevenDayDelta)}
-              helper="Comparada ao registro-base"
+              label="Media movel 7 dias"
+              value={latestMovingPoint ? formatWeight(latestMovingPoint.movingAverageKg) + " kg" : "--"}
+              helper={latestMovingPoint ? "Ate " + formatEntryDate(latestMovingPoint.measuredOn) : "Sem dados"}
               icon={<IconChartLine className="size-5" />}
               tone="emerald"
             />
             <MetricCard
-              label="Variacao no periodo"
-              value={formatDelta(periodDelta)}
-              helper={range === "all" ? "Desde o primeiro registro" : `Ultimos ${range} dias`}
+              label="Semana vs. anterior"
+              value={formatDelta(weeklyComparison.deltaKg)}
+              helper={weeklyComparison.currentCount + " e " + weeklyComparison.previousCount + " registros comparados"}
               icon={<IconCalendar className="size-5" />}
               tone="amber"
             />
             <MetricCard
-              label="Registros"
-              value={String(entries.length)}
-              helper="No periodo selecionado"
+              label="30 dias vs. anteriores"
+              value={formatDelta(monthlyComparison.deltaKg)}
+              helper={monthlyComparison.currentCount + " e " + monthlyComparison.previousCount + " registros comparados"}
               icon={<IconHistory className="size-5" />}
               tone="slate"
             />
@@ -288,9 +517,10 @@ export default function BodyWeight() {
             <CardHeader className="gap-4 border-b">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle>Tendencia</CardTitle>
-                  <CardDescription className="mt-1">
-                    A linha conecta suas pesagens no periodo escolhido.
+                  <CardTitle>Tendencia de peso</CardTitle>
+                  <CardDescription className="mt-1 max-w-2xl">
+                    A media movel usa os registros do dia e dos seis dias anteriores.
+                    Ela suaviza oscilacoes diarias; dias sem pesagem nao contam como zero.
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2" aria-label="Periodo do grafico">
@@ -313,11 +543,71 @@ export default function BodyWeight() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              {isError ? (
-                <ErrorState onRetry={() => refetch()} />
+              {weightQuery.isError ? (
+                <ErrorState message="Nao foi possivel carregar suas pesagens." onRetry={() => weightQuery.refetch()} />
               ) : (
-                <WeightChart entries={entries} isLoading={isFetching} />
+                <WeightChart entries={movingPoints} isLoading={weightQuery.isFetching} />
               )}
+            </CardContent>
+          </Card>
+
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <IconFlame className="size-5 text-amber-300" />
+              <h3 className="font-semibold">Energia nos ultimos 7 dias</h3>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="Gasto em repouso"
+                value={calculation?.restingEnergyExpenditureKcal ? formatKcal(calculation.restingEnergyExpenditureKcal) + " kcal" : "--"}
+                helper="Base estimada, sem atividade"
+                icon={<IconActivity className="size-5" />}
+                tone="sky"
+              />
+              <MetricCard
+                label="Gasto diario usado"
+                value={calculation?.effectiveDailyExpenditureKcal ? formatKcal(calculation.effectiveDailyExpenditureKcal) + " kcal" : "--"}
+                helper={calculation?.source === "OVERRIDE" ? "Valor manual" : calculation?.source === "ESTIMATE" ? "Estimativa com atividade" : "Configure os dados"}
+                icon={<IconFlame className="size-5" />}
+                tone="amber"
+              />
+              <MetricCard
+                label="Consumo registrado"
+                value={formatKcal(weeklyConsumed) + " kcal"}
+                helper={weeklyCalories.length + "/7 dias registrados"}
+                icon={<IconCalendar className="size-5" />}
+                tone="slate"
+              />
+              <MetricCard
+                label="Balanco semanal"
+                value={formatWeeklyBalance(weeklyBalance)}
+                helper={calculableWeeklyCalories.length + " dias com calculo"}
+                icon={<IconChartLine className="size-5" />}
+                tone={weeklyBalance !== null && weeklyBalance < 0 ? "amber" : "emerald"}
+              />
+            </div>
+          </section>
+
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Consumo e gasto por dia</CardTitle>
+              <CardDescription>
+                Deficit positivo significa que o gasto usado ficou acima do consumo informado.
+                O total semanal considera somente dias registrados.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5">
+              {calorieQuery.isError ? (
+                <ErrorState message="Nao foi possivel carregar suas calorias." onRetry={() => calorieQuery.refetch()} />
+              ) : (
+                <CalorieWeek entries={allCalories} today={today} isLoading={calorieQuery.isFetching} />
+              )}
+              <div className="mt-4 flex gap-2 rounded-lg border bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
+                <IconInfoCircle className="mt-0.5 size-4 shrink-0 text-sky-300" />
+                <p>
+                  O gasto e uma estimativa, nao uma prescricao. Ajuste o valor manualmente se voce tiver uma medicao profissional mais adequada.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -325,21 +615,44 @@ export default function BodyWeight() {
             <CardHeader className="border-b">
               <CardTitle>Historico</CardTitle>
               <CardDescription>
-                Edite uma medicao incorreta ou remova um registro quando
-                necessario.
+                Edite um valor incorreto ou remova um registro sem afetar o outro acompanhamento.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-2 sm:pt-3">
-              <WeightHistory
-                entries={entries}
-                deleting={deleteMutation.isPending}
-                onEdit={editEntry}
-                onDelete={deleteEntry}
-              />
+            <CardContent className="pt-4">
+              <Tabs defaultValue="weights">
+                <TabsList className="mb-3">
+                  <TabsTrigger value="weights">Pesagens ({weights.length})</TabsTrigger>
+                  <TabsTrigger value="calories">Calorias ({allCalories.length})</TabsTrigger>
+                </TabsList>
+                <TabsContent value="weights">
+                  <WeightHistory
+                    entries={weights}
+                    deleting={deleteWeightMutation.isPending}
+                    onEdit={editWeight}
+                    onDelete={deleteWeight}
+                  />
+                </TabsContent>
+                <TabsContent value="calories">
+                  <CalorieHistory
+                    entries={allCalories}
+                    deleting={deleteCalorieMutation.isPending}
+                    onEdit={editCalories}
+                    onDelete={deleteCalories}
+                  />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <HealthProfileDialog
+        open={profileOpen}
+        profile={profile}
+        isSaving={profileMutation.isPending}
+        onOpenChange={setProfileOpen}
+        onSave={saveProfile}
+      />
     </div>
   );
 }
@@ -370,9 +683,7 @@ function MetricCard({
         {icon}
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
         <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
         <p className="mt-1 text-xs text-muted-foreground">{helper}</p>
       </div>
@@ -380,191 +691,13 @@ function MetricCard({
   );
 }
 
-function WeightChart({
-  entries,
-  isLoading,
-}: {
-  entries: BodyWeightEntry[];
-  isLoading: boolean;
-}) {
-  if (isLoading && entries.length === 0) {
-    return (
-      <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
-        Carregando sua evolucao...
-      </div>
-    );
-  }
-
-  if (entries.length === 0) {
-    return (
-      <div className="flex h-72 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/10 px-5 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-sky-500/10 text-sky-300">
-          <IconChartLine className="size-6" />
-        </div>
-        <p className="mt-4 font-medium">Seu grafico comeca no primeiro registro</p>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-          Cadastre a pesagem de hoje para iniciar o acompanhamento.
-        </p>
-      </div>
-    );
-  }
-
-  const width = 860;
-  const height = 290;
-  const padding = { top: 24, right: 28, bottom: 42, left: 54 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-  const weights = entries.map((entry) => entry.weightKg);
-  const rawMin = Math.min(...weights);
-  const rawMax = Math.max(...weights);
-  const spread = Math.max(rawMax - rawMin, 1);
-  const min = rawMin - spread * 0.18;
-  const max = rawMax + spread * 0.18;
-  const points = entries.map((entry, index) => {
-    const x =
-      entries.length === 1
-        ? padding.left + chartWidth / 2
-        : padding.left + (index / (entries.length - 1)) * chartWidth;
-    const y = padding.top + ((max - entry.weightKg) / (max - min)) * chartHeight;
-    return { x, y, entry };
-  });
-  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const area = `M ${points[0].x} ${padding.top + chartHeight} L ${points
-    .map((point) => `${point.x} ${point.y}`)
-    .join(" L ")} L ${points.at(-1)!.x} ${padding.top + chartHeight} Z`;
-  const labelIndexes = [...new Set([0, Math.floor((entries.length - 1) / 2), entries.length - 1])];
-
+function ErrorState({ message, onRetry }: { message: string; onRetry(): void }) {
   return (
-    <div className="relative overflow-x-auto" aria-label="Grafico da evolucao do peso">
-      <svg viewBox={`0 0 ${width} ${height}`} className="min-h-64 w-full min-w-[36rem]" role="img">
-        <defs>
-          <linearGradient id="weight-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-          </linearGradient>
-          <filter id="weight-glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {[0, 0.5, 1].map((ratio) => {
-          const y = padding.top + ratio * chartHeight;
-          const value = max - ratio * (max - min);
-          return (
-            <g key={ratio}>
-              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="currentColor" className="text-border" strokeDasharray="5 7" />
-              <text x={padding.left - 10} y={y + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">
-                {formatWeight(value)}
-              </text>
-            </g>
-          );
-        })}
-
-        <path d={area} fill="url(#weight-area)" />
-        <polyline points={line} fill="none" stroke="#34d399" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" filter="url(#weight-glow)" />
-
-        {points.map((point, index) => (
-          <circle
-            key={point.entry.id}
-            cx={point.x}
-            cy={point.y}
-            r={index === points.length - 1 ? 5 : 3.5}
-            fill={index === points.length - 1 ? "#7dd3fc" : "#34d399"}
-            stroke="#111827"
-            strokeWidth="2"
-          />
-        ))}
-
-        {labelIndexes.map((index) => {
-          const point = points[index];
-          return (
-            <text key={point.entry.id} x={point.x} y={height - 13} textAnchor={index === 0 ? "start" : index === entries.length - 1 ? "end" : "middle"} className="fill-muted-foreground text-[11px]">
-              {format(parseISO(point.entry.measuredOn), "dd MMM", { locale: ptBR })}
-            </text>
-          );
-        })}
-      </svg>
-      {isLoading && (
-        <span className="absolute right-2 top-2 rounded-full bg-background/80 px-2 py-1 text-xs text-muted-foreground">
-          Atualizando...
-        </span>
-      )}
-    </div>
-  );
-}
-
-function WeightHistory({
-  entries,
-  deleting,
-  onEdit,
-  onDelete,
-}: {
-  entries: BodyWeightEntry[];
-  deleting: boolean;
-  onEdit(entry: BodyWeightEntry): void;
-  onDelete(entry: BodyWeightEntry): void;
-}) {
-  if (entries.length === 0) {
-    return (
-      <div className="py-10 text-center text-sm text-muted-foreground">
-        Nenhuma pesagem encontrada neste periodo.
-      </div>
-    );
-  }
-
-  const deltas = new Map<string, number | null>();
-  entries.forEach((entry, index) => {
-    const previous = entries[index - 1];
-    deltas.set(entry.id, previous ? entry.weightKg - previous.weightKg : null);
-  });
-
-  return (
-    <div className="divide-y">
-      {[...entries].reverse().map((entry) => {
-        const delta = deltas.get(entry.id) ?? null;
-        return (
-          <div key={entry.id} className="flex flex-col gap-3 py-4 first:pt-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
-                <IconScale className="size-5" />
-              </div>
-              <div>
-                <p className="font-medium">{formatEntryDate(entry.measuredOn, true)}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {delta === null ? "Primeiro registro do periodo" : `${formatDelta(delta)} desde a medicao anterior`}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between gap-3 pl-[3.25rem] sm:justify-end sm:pl-0">
-              <p className="text-lg font-semibold tabular-nums">{formatWeight(entry.weightKg)} kg</p>
-              <div className="flex gap-1">
-                <Button type="button" size="icon" variant="ghost" aria-label={`Editar pesagem de ${formatEntryDate(entry.measuredOn)}`} onClick={() => onEdit(entry)}>
-                  <IconPencil />
-                </Button>
-                <Button type="button" size="icon" variant="ghost" className="text-destructive hover:text-destructive" disabled={deleting} aria-label={`Excluir pesagem de ${formatEntryDate(entry.measuredOn)}`} onClick={() => onDelete(entry)}>
-                  <IconTrash />
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ErrorState({ onRetry }: { onRetry(): void }) {
-  return (
-    <div className="flex h-72 flex-col items-center justify-center rounded-xl border border-dashed px-5 text-center">
-      <p className="font-medium">Nao foi possivel carregar suas pesagens.</p>
+    <div className="flex h-56 flex-col items-center justify-center rounded-xl border border-dashed px-5 text-center">
+      <p className="font-medium">{message}</p>
       <p className="mt-1 text-sm text-muted-foreground">Tente novamente em instantes.</p>
       <Button type="button" variant="outline" className="mt-4" onClick={onRetry}>
-        <IconRefresh />
-        Tentar novamente
+        <IconRefresh /> Tentar novamente
       </Button>
     </div>
   );

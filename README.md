@@ -46,6 +46,8 @@ atual foi redesenhado em torno das compras, parcelas e recebimentos da operacao.
 - custos, impostos, deducoes, margem projetada e margem com custo conhecido
 - dashboard com periodo de 7, 15, 30 dias ou intervalo personalizado, filas
   operacionais e contas vencidas
+- area pessoal privada para peso, meta opcional, media movel de sete dias,
+  comparativos semanal e mensal, calorias e balanco energetico estimado
 - preservacao do total oficial do documento
 - alerta quando o total oficial diverge da soma dos itens
 - interface dark responsiva para desktop e celular
@@ -84,7 +86,7 @@ VITE_API_URL=http://localhost:3000
 Sem `VITE_API_URL`, o app usa `https://api.moneystack.com.br`. Para trabalhar
 na V2 localmente, a API deve estar na mesma branch e com o banco criado a
 partir das migracoes da V2, incluindo `0008_quotations.sql` para o modulo de
-cotacoes. A API publicada tambem precisa do bucket privado criado pelo
+cotacoes e `0010_personal-health-v1-1.sql` para a area pessoal. A API publicada tambem precisa do bucket privado criado pelo
 Serverless.
 
 O servidor de desenvolvimento usa `http://localhost:5173` com porta estrita.
