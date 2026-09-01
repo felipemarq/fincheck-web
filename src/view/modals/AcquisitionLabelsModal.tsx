@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   buildAcquisitionLabelSourceItems,
   buildDefaultAcquisitionLabelVolumes,
+  countAcquisitionLabelVolumeItems,
   exportAcquisitionLabelsPdf,
   LABELS_PER_PAGE,
   MAX_ITEMS_PER_LABEL,
@@ -174,7 +175,8 @@ export function AcquisitionLabelsModal({
   );
   const emptyVolumes = volumes.filter((volume) => !volume.items.length);
   const oversizedVolumes = volumes.filter(
-    (volume) => volume.items.length > MAX_ITEMS_PER_LABEL
+    (volume) =>
+      countAcquisitionLabelVolumeItems(volume.items) > MAX_ITEMS_PER_LABEL
   );
   const invalidQuantityVolumes = volumes.filter((volume) =>
     volume.items.some(
@@ -216,7 +218,7 @@ export function AcquisitionLabelsModal({
 
   function resetOneVolumePerItem() {
     setVolumes(buildDefaultAcquisitionLabelVolumes(sourceItems));
-    toast.success("Criado um volume para cada item.");
+    toast.success("Restaurado um volume para cada item de cada compra.");
   }
 
   function groupIntoBoxes() {
@@ -280,7 +282,12 @@ export function AcquisitionLabelsModal({
     const targetVolume = volumes.find((volume) => volume.id === targetVolumeId);
 
     if (!sourceItem || !targetVolume) return;
-    if (targetVolume.items.length >= MAX_ITEMS_PER_LABEL) {
+    if (
+      countAcquisitionLabelVolumeItems([
+        ...targetVolume.items,
+        toAcquisitionLabelVolumeItem(sourceItem),
+      ]) > MAX_ITEMS_PER_LABEL
+    ) {
       toast.error(`Uma etiqueta comporta até ${MAX_ITEMS_PER_LABEL} itens.`);
       return;
     }
@@ -477,7 +484,8 @@ export function AcquisitionLabelsModal({
                   <h3 className="text-sm font-semibold">Distribuição rápida</h3>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Comece com um modelo automático e refine os volumes abaixo.
+                  Por padrão, cada item de cada pedido ao fornecedor gera seu
+                  próprio volume. Depois, você pode agrupar ou dividir como precisar.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -489,7 +497,7 @@ export function AcquisitionLabelsModal({
                   onClick={resetOneVolumePerItem}
                 >
                   <IconTags />
-                  Um volume por item
+                  Restaurar padrão das compras
                 </Button>
                 <Button
                   type="button"
@@ -518,7 +526,7 @@ export function AcquisitionLabelsModal({
                   <SelectContent>
                     {sourceItems.map((sourceItem) => (
                       <SelectItem key={sourceItem.id} value={sourceItem.id}>
-                        {sourceItem.lineNumber}. {sourceItem.productDescription}
+                        {sourceItem.lineNumber}. {sourceItem.productDescription} · {sourceItem.purchaseLabel}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -573,6 +581,9 @@ export function AcquisitionLabelsModal({
                     >
                       <p className="line-clamp-2 text-xs font-semibold leading-5">
                         {sourceItem.lineNumber}. {sourceItem.productDescription}
+                      </p>
+                      <p className="mt-1 text-[11px] font-medium text-emerald-300">
+                        {sourceItem.purchaseLabel}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                         <span>
@@ -734,7 +745,15 @@ function VolumeEditor({
   const volumeSourceIds = new Set(
     volume.items.map((item) => item.sourceItemId)
   );
-  const canAddItem = volume.items.length < MAX_ITEMS_PER_LABEL;
+  const productCount = countAcquisitionLabelVolumeItems(volume.items);
+  const canAddItem = sourceItems.some(
+    (sourceItem) =>
+      !volumeSourceIds.has(sourceItem.id) &&
+      countAcquisitionLabelVolumeItems([
+        ...volume.items,
+        toAcquisitionLabelVolumeItem(sourceItem),
+      ]) <= MAX_ITEMS_PER_LABEL
+  );
 
   return (
     <article className="overflow-hidden rounded-2xl border bg-muted/10">
@@ -748,7 +767,7 @@ function VolumeEditor({
               {volume.title.trim() || `Volume ${volumeIndex + 1}`}
             </h4>
             <p className="text-xs text-muted-foreground">
-              {volume.items.length} {volume.items.length === 1 ? "item" : "itens"} · {volume.copies} {volume.copies === 1 ? "cópia" : "cópias"}
+              {productCount} {productCount === 1 ? "produto" : "produtos"} · {volume.copies} {volume.copies === 1 ? "cópia" : "cópias"}
             </p>
           </div>
         </div>
@@ -807,7 +826,7 @@ function VolumeEditor({
                     {item.lineNumber}. {item.productDescription}
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Disponível para etiquetas: {formatQuantity(sourceItem?.availableQuantity ?? 0)} {item.unit}
+                    {sourceItem?.purchaseLabel} · Disponível para etiquetas: {formatQuantity(sourceItem?.availableQuantity ?? 0)} {item.unit}
                   </p>
                 </div>
                 <label className="space-y-2 text-xs font-medium text-muted-foreground">
@@ -865,9 +884,15 @@ function VolumeEditor({
                   <SelectItem
                     key={sourceItem.id}
                     value={sourceItem.id}
-                    disabled={volumeSourceIds.has(sourceItem.id)}
+                    disabled={
+                      volumeSourceIds.has(sourceItem.id) ||
+                      countAcquisitionLabelVolumeItems([
+                        ...volume.items,
+                        toAcquisitionLabelVolumeItem(sourceItem),
+                      ]) > MAX_ITEMS_PER_LABEL
+                    }
                   >
-                    {sourceItem.lineNumber}. {sourceItem.productDescription}
+                    {sourceItem.lineNumber}. {sourceItem.productDescription} · {sourceItem.purchaseLabel}
                   </SelectItem>
                 ))}
               </SelectContent>

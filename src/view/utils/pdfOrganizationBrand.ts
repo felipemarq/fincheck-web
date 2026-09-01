@@ -62,50 +62,98 @@ export function mixPdfColor(
   ) as PdfRgb;
 }
 
+function renderPdfBrandLogo(
+  source: CanvasImageSource,
+  naturalWidth: number,
+  naturalHeight: number
+): PdfBrandLogo | undefined {
+  const maxDimension = 1_600;
+  const scale = Math.min(
+    1,
+    maxDimension / Math.max(naturalWidth, naturalHeight)
+  );
+  const width = Math.max(1, Math.round(naturalWidth * scale));
+  const height = Math.max(1, Math.round(naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+
+  if (!context) return undefined;
+
+  context.drawImage(source, 0, 0, width, height);
+
+  return {
+    dataUrl: canvas.toDataURL("image/png"),
+    width,
+    height,
+  };
+}
+
+async function loadHtmlImage(source: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const candidate = new Image();
+    candidate.crossOrigin = "anonymous";
+    candidate.decoding = "async";
+    candidate.onload = () => resolve(candidate);
+    candidate.onerror = reject;
+    candidate.src = source;
+  });
+}
+
 export async function loadPdfBrandLogo(
   logoUrl?: string
 ): Promise<PdfBrandLogo | undefined> {
   if (!logoUrl) return undefined;
 
   try {
-    const response = await fetch(logoUrl);
+    const response = await fetch(logoUrl, {
+      cache: "no-store",
+      credentials: "omit",
+      mode: "cors",
+    });
     if (!response.ok) return undefined;
 
-    const objectUrl = URL.createObjectURL(await response.blob());
+    const blob = await response.blob();
+
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bitmap = await createImageBitmap(blob);
+
+        try {
+          return renderPdfBrandLogo(bitmap, bitmap.width, bitmap.height);
+        } finally {
+          bitmap.close();
+        }
+      } catch {
+        // Some browsers cannot decode every supported image through ImageBitmap.
+      }
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
 
     try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const candidate = new Image();
-        candidate.onload = () => resolve(candidate);
-        candidate.onerror = reject;
-        candidate.src = objectUrl;
-      });
-      const maxDimension = 1_600;
-      const scale = Math.min(
-        1,
-        maxDimension / Math.max(image.naturalWidth, image.naturalHeight)
+      const image = await loadHtmlImage(objectUrl);
+      return renderPdfBrandLogo(
+        image,
+        image.naturalWidth,
+        image.naturalHeight
       );
-      const width = Math.max(1, Math.round(image.naturalWidth * scale));
-      const height = Math.max(1, Math.round(image.naturalHeight * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-
-      if (!context) return undefined;
-
-      context.drawImage(image, 0, 0, width, height);
-
-      return {
-        dataUrl: canvas.toDataURL("image/png"),
-        width,
-        height,
-      };
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
-  } catch {
-    return undefined;
+  } catch (error) {
+    try {
+      const image = await loadHtmlImage(logoUrl);
+      return renderPdfBrandLogo(
+        image,
+        image.naturalWidth,
+        image.naturalHeight
+      );
+    } catch {
+      console.warn("Não foi possível carregar a logo da organização no PDF.", error);
+      return undefined;
+    }
   }
 }
 

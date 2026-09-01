@@ -20,6 +20,7 @@ export const MAX_LABELS_PER_EXPORT = 120;
 
 export type AcquisitionLabelSourceItem = {
   id: string;
+  purchaseLabel: string;
   productDescription: string;
   brand?: string;
   packaging?: string;
@@ -111,6 +112,38 @@ function setTextColor(document: jsPDF, color: PdfRgb) {
 
 function roundQuantity(value: number) {
   return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
+function volumeItemKey(item: AcquisitionLabelVolumeItem) {
+  return [item.lineNumber, item.productDescription, item.unit].join(":");
+}
+
+export function consolidateAcquisitionLabelVolumeItems(
+  items: AcquisitionLabelVolumeItem[]
+) {
+  const consolidated = new Map<string, AcquisitionLabelVolumeItem>();
+
+  items.forEach((item) => {
+    const key = volumeItemKey(item);
+    const current = consolidated.get(key);
+
+    consolidated.set(key, {
+      ...(current ?? item),
+      quantity: roundQuantity((current?.quantity ?? 0) + item.quantity),
+    });
+  });
+
+  return [...consolidated.values()].sort(
+    (first, second) =>
+      first.lineNumber - second.lineNumber ||
+      first.productDescription.localeCompare(second.productDescription, "pt-BR")
+  );
+}
+
+export function countAcquisitionLabelVolumeItems(
+  items: AcquisitionLabelVolumeItem[]
+) {
+  return consolidateAcquisitionLabelVolumeItems(items).length;
 }
 
 function formatQuantity(value: number) {
@@ -426,12 +459,13 @@ function drawLabel(
   const notes = volume.notes.trim();
   const contentTop = separatorY + 1.5;
   const contentBottom = y + LABEL.height - (notes ? 11 : 4.5);
+  const printableItems = consolidateAcquisitionLabelVolumeItems(volume.items);
 
-  if (volume.items.length === 1) {
+  if (printableItems.length === 1) {
     drawSingleItem(
       document,
       colors,
-      volume.items[0],
+      printableItems[0],
       innerX,
       innerWidth,
       contentTop,
@@ -441,7 +475,7 @@ function drawLabel(
     drawMultipleItems(
       document,
       colors,
-      volume.items,
+      printableItems,
       innerX,
       innerWidth,
       contentTop,
@@ -471,51 +505,49 @@ export function buildAcquisitionLabelSourceItems(
   order: PurchaseOrder,
   acquisitions: Acquisition[]
 ) {
-  const sourceItems = new Map<string, AcquisitionLabelSourceItem>();
   const orderItems = new Map(
     order.items
       .filter((item) => item.id)
       .map((item) => [item.id as string, item])
   );
 
-  acquisitions
+  return acquisitions
     .filter((acquisition) => acquisition.status !== "CANCELLED")
-    .forEach((acquisition) => {
-      acquisition.items.forEach((item) => {
+    .flatMap((acquisition, acquisitionIndex) =>
+      acquisition.items.flatMap((item, itemIndex) =>
         item.allocations
           .filter(
             (allocation) =>
               allocation.purchaseOrderId === order.id &&
               allocation.allocatedQuantity > 0
           )
-          .forEach((allocation) => {
-            const sourceId = allocation.purchaseOrderItemId;
-            const orderItem = orderItems.get(sourceId);
-            const current = sourceItems.get(sourceId);
+          .map((allocation, allocationIndex): AcquisitionLabelSourceItem => {
+            const orderItem = orderItems.get(allocation.purchaseOrderItemId);
 
-            sourceItems.set(sourceId, {
-              id: sourceId,
+            return {
+              id: [
+                acquisition.id,
+                item.id ?? item.productId ?? itemIndex,
+                allocation.id ??
+                  allocation.purchaseOrderItemId ??
+                  allocationIndex,
+              ].join(":"),
+              purchaseLabel: acquisition.sellerOrderNumber
+                ? `Pedido ${acquisition.sellerOrderNumber}`
+                : `Compra ${acquisitionIndex + 1}`,
               productDescription:
                 orderItem?.description || item.description || allocation.description,
               brand: orderItem?.brand || item.brand,
               packaging: item.packaging,
-              availableQuantity: roundQuantity(
-                (current?.availableQuantity ?? 0) + allocation.allocatedQuantity
-              ),
+              availableQuantity: roundQuantity(allocation.allocatedQuantity),
               unit:
                 orderItem?.originalUnit ||
                 allocation.originalUnit ||
                 item.normalizedUnit,
               lineNumber: orderItem?.lineNumber || allocation.lineNumber,
-            });
-          });
-      });
-    });
-
-  return [...sourceItems.values()].sort(
-    (first, second) =>
-      first.lineNumber - second.lineNumber ||
-      first.productDescription.localeCompare(second.productDescription, "pt-BR")
+            };
+          })
+      )
   );
 }
 
@@ -569,7 +601,7 @@ function validateLabelDocument(labelDocument: AcquisitionLabelDocument) {
       throw new Error(`O volume ${index + 1} não possui itens.`);
     }
 
-    if (volume.items.length > MAX_ITEMS_PER_LABEL) {
+    if (countAcquisitionLabelVolumeItems(volume.items) > MAX_ITEMS_PER_LABEL) {
       throw new Error(
         `O volume ${index + 1} excede o limite de ${MAX_ITEMS_PER_LABEL} itens.`
       );
