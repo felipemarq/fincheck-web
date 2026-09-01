@@ -746,6 +746,9 @@ function VolumeEditor({
     volume.items.map((item) => item.sourceItemId)
   );
   const productCount = countAcquisitionLabelVolumeItems(volume.items);
+  const hasSourceOutsideVolume = sourceItems.some(
+    (sourceItem) => !volumeSourceIds.has(sourceItem.id)
+  );
   const canAddItem = sourceItems.some(
     (sourceItem) =>
       !volumeSourceIds.has(sourceItem.id) &&
@@ -875,7 +878,9 @@ function VolumeEditor({
                   placeholder={
                     canAddItem
                       ? "Selecione um item da ordem"
-                      : `Limite de ${MAX_ITEMS_PER_LABEL} itens atingido`
+                      : hasSourceOutsideVolume
+                        ? `Limite de ${MAX_ITEMS_PER_LABEL} itens atingido`
+                        : "Todos os itens já estão neste volume"
                   }
                 />
               </SelectTrigger>
