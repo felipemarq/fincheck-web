@@ -265,7 +265,9 @@ export function AcquisitionLabelsModal({
           <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs leading-5 text-muted-foreground">
               {selectedLabels.length
-                ? `${selectedLabels.length} etiquetas · ${selectedPageCount} ${
+                ? `${selectedLabels.length} ${
+                    selectedLabels.length === 1 ? "etiqueta" : "etiquetas"
+                  } · ${selectedPageCount} ${
                     selectedPageCount === 1 ? "folha A4" : "folhas A4"
                   } · grade 2 × 3`
                 : "Selecione pelo menos uma etiqueta para gerar o PDF."}
