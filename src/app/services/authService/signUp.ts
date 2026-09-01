@@ -7,8 +7,8 @@ export interface SignUpParams {
 }
 
 interface SignUpResponse {
-  accessToken: string;
-  refreshToken: string;
+  email: string;
+  requiresConfirmation: true;
 }
 
 export const signUp = async (params: SignUpParams) => {

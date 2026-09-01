@@ -1,4 +1,4 @@
-import logo from "@/assets/jc-materiais-logo-stacked.png";
+import { PlatformBrand } from "@/components/PlatformBrand";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,11 +18,7 @@ export default function Login() {
   return (
     <div className=" flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <img
-          src={logo}
-          alt="JC Materiais Hospitalares"
-          className="h-24 w-auto self-center object-contain"
-        />
+        <PlatformBrand className="self-center" />
         <div className={cn("flex flex-col gap-6")}>
           <Card>
             <CardHeader className="text-center">
@@ -58,6 +54,12 @@ export default function Login() {
                         {...register("password")}
                         error={errors.password?.message}
                       />
+                      <Link
+                        to="/verify-email"
+                        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                      >
+                        Ainda nao confirmou o e-mail?
+                      </Link>
                     </div>
                     <Button
                       type="submit"

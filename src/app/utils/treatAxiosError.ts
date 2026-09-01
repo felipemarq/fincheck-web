@@ -2,8 +2,6 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 
 export const treatAxiosError = (error: unknown) => {
-  console.log(error);
-
   if (error instanceof AxiosError) {
     if (error.response) {
       const errMsg = error.response.data?.error?.message;

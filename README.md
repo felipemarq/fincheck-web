@@ -1,17 +1,19 @@
 # Fincheck Web
 
-Frontend web da nova operacao comercial e de ordens de compra. Esta branch
-inicia a V2 do produto, simplificada em torno do fluxo real da empresa: cotar,
+Frontend web da nova operacao comercial e de ordens de compra. A branch
+`feature/saas-foundation` preserva a V2 e inicia sua evolucao para SaaS: cotar,
 receber uma ordem, comprar, conferir chegadas, entregar, faturar e acompanhar
-o pagamento.
+o pagamento com mais de um usuario por organizacao.
 
 O codigo da experiencia financeira generica anterior foi removido. O modulo
 atual foi redesenhado em torno das compras, parcelas e recebimentos da operacao.
 
 ## Fluxo atual da V2
 
-- autenticacao e recuperacao de sessao existentes
+- cadastro com verificacao real de e-mail, login e recuperacao de sessao
 - selecao da organizacao ativa
+- perfil comercial, cor e logo versionada por organizacao
+- equipe por organizacao, convites e papeis com permissoes explicitas
 - criacao de organizacao com encaminhamento para o primeiro produto
 - cadastro e edicao de clientes
 - catalogo de produtos com codigo ERP/SKU opcional, busca, edicao, inativacao e
@@ -19,7 +21,7 @@ atual foi redesenhado em torno das compras, parcelas e recebimentos da operacao.
 - cotacoes com cadastro rapido de produto, precos, condicoes e imagens
   opcionais por item
 - revisao, edicao, exclusao e exportacao da cotacao em PDF paginado com
-  galeria de imagens
+  galeria de imagens e identidade congelada na emissao
 - listagem e filtros de ordens de compra
 - fila unificada de itens pendentes, comprados e recebidos, com busca, filtros,
   prazos, paginacao e acoes operacionais
@@ -46,8 +48,9 @@ atual foi redesenhado em torno das compras, parcelas e recebimentos da operacao.
 - custos, impostos, deducoes, margem projetada e margem com custo conhecido
 - dashboard com periodo de 7, 15, 30 dias ou intervalo personalizado, filas
   operacionais e contas vencidas
-- area pessoal privada para peso, meta opcional, media movel de sete dias,
-  comparativos semanal e mensal, calorias e balanco energetico estimado
+- area pessoal privada com check-in rapido de peso, consumo e gasto total do
+  dia, meta opcional, resumo semanal, media movel de sete dias, comparativos e
+  projecao conservadora da data da meta
 - preservacao do total oficial do documento
 - alerta quando o total oficial diverge da soma dos itens
 - interface dark responsiva para desktop e celular
@@ -86,8 +89,10 @@ VITE_API_URL=http://localhost:3000
 Sem `VITE_API_URL`, o app usa `https://api.moneystack.com.br`. Para trabalhar
 na V2 localmente, a API deve estar na mesma branch e com o banco criado a
 partir das migracoes da V2, incluindo `0008_quotations.sql` para o modulo de
-cotacoes e `0010_personal-health-v1-1.sql` para a area pessoal. A API publicada tambem precisa do bucket privado criado pelo
-Serverless.
+cotacoes, `0010_personal-health-v1-1.sql` para a area pessoal e
+`0012_saas-foundation.sql` para equipe e permissoes e
+`0013_entity-branding.sql` para perfil e logos. A API publicada tambem precisa
+do bucket privado criado pelo Serverless.
 
 O servidor de desenvolvimento usa `http://localhost:5173` com porta estrita.
 Se a porta estiver ocupada, encerre a instancia anterior antes de executar
@@ -107,3 +112,5 @@ pnpm build
 
 - [Arquitetura](./docs/architecture.md)
 - [Estado atual da V2](./docs/current-state.md)
+- [Identidade visual JC Materiais](./docs/brand/jc-materiais/README.md)
+- [Onboarding, acesso e assinatura SaaS](./docs/saas-onboarding-and-access.md)

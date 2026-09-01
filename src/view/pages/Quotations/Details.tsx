@@ -3,6 +3,7 @@ import {
   IconArrowLeft,
   IconBuildingStore,
   IconCalendar,
+  IconCopy,
   IconFileTypePdf,
   IconMapPin,
   IconPackage,
@@ -50,10 +51,14 @@ export default function QuotationDetails() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { quotationId = "" } = useParams();
-  const { selectedEntityId } = useAuth();
+  const { can, selectedEntityId } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const deleteMutation = useMutation({ mutationFn: quotationService.remove });
+  const duplicateMutation = useMutation({
+    mutationFn: quotationService.duplicate,
+  });
   const { quotation, isFetchingQuotation, isError, refetch } = useQuotation(
     {
       entityId: selectedEntityId ?? "",
@@ -99,6 +104,31 @@ export default function QuotationDetails() {
       });
       toast.success(`Cotacao ${quotation.number} excluida.`);
       navigate("/quotations", { replace: true });
+    } catch (error) {
+      treatAxiosError(error);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (!selectedEntityId || !quotation) return;
+
+    try {
+      const duplicated = await duplicateMutation.mutateAsync({
+        entityId: selectedEntityId,
+        quotationId: quotation.id,
+      });
+      queryClient.setQueryData(
+        [QueryKeys.QUOTATIONS, selectedEntityId, duplicated.id],
+        duplicated
+      );
+      await queryClient.invalidateQueries({
+        queryKey: [QueryKeys.QUOTATIONS, selectedEntityId],
+      });
+      setIsDuplicateDialogOpen(false);
+      toast.success(
+        `Cotacao duplicada como ${duplicated.number}. Revise antes de enviar.`
+      );
+      navigate(`/quotations/${duplicated.id}/edit`);
     } catch (error) {
       treatAxiosError(error);
     }
@@ -156,6 +186,15 @@ export default function QuotationDetails() {
           </Link>
         </Button>
         <div className="flex flex-wrap gap-2">
+          {can("quotations.create") && (
+            <Button
+              variant="outline"
+              onClick={() => setIsDuplicateDialogOpen(true)}
+            >
+              <IconCopy />
+              Duplicar
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link to={`/quotations/${quotation.id}/edit`}>
               <IconPencil />
@@ -404,6 +443,39 @@ export default function QuotationDetails() {
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={isDuplicateDialogOpen}
+        onOpenChange={setIsDuplicateDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar cotacao {quotation.number}?</DialogTitle>
+            <DialogDescription>
+              Uma nova cotacao sera criada como rascunho, com cliente, itens,
+              valores, condicoes, observacoes e imagens copiados. A identidade
+              visual sera atualizada a partir do perfil atual da organizacao e
+              a cotacao original permanecera intacta.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={duplicateMutation.isPending}
+              onClick={() => setIsDuplicateDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              isLoading={duplicateMutation.isPending}
+              onClick={handleDuplicate}
+            >
+              <IconCopy />
+              Criar novo rascunho
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isDeleteDialogOpen}

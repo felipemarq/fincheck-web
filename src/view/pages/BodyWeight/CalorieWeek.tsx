@@ -1,4 +1,4 @@
-import { IconFlame, IconMinus } from "@tabler/icons-react";
+import { IconActivity, IconFlame } from "@tabler/icons-react";
 import { eachDayOfInterval, format, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -40,7 +40,7 @@ export function CalorieWeek({
       entry
         ? [
             entry.caloriesConsumed,
-            entry.calculation.effectiveDailyExpenditureKcal ?? 0,
+            entry.effectiveCaloriesBurned ?? 0,
           ]
         : [0]
     )
@@ -63,7 +63,7 @@ export function CalorieWeek({
         </span>
         <span className="flex items-center gap-2">
           <span className="size-2.5 rounded-full bg-sky-400" />
-          Gasto diario usado
+            Gasto total usado
         </span>
       </div>
 
@@ -100,7 +100,7 @@ export function CalorieWeek({
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <IconMinus className="size-3.5 text-sky-300" />
+                <IconActivity className="size-3.5 text-sky-300" />
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-sky-400"
@@ -108,8 +108,7 @@ export function CalorieWeek({
                       width:
                         Math.max(
                           3,
-                          ((entry.calculation.effectiveDailyExpenditureKcal ??
-                            0) /
+                          ((entry.effectiveCaloriesBurned ?? 0) /
                             maximum) *
                             100
                         ) + "%",
@@ -117,11 +116,9 @@ export function CalorieWeek({
                   />
                 </div>
                 <span className="w-20 text-right text-xs tabular-nums">
-                  {entry.calculation.effectiveDailyExpenditureKcal === null
+                  {entry.effectiveCaloriesBurned === null
                     ? "--"
-                    : formatKcal(
-                        entry.calculation.effectiveDailyExpenditureKcal
-                      ) + " kcal"}
+                    : formatKcal(entry.effectiveCaloriesBurned) + " kcal"}
                 </span>
               </div>
             </div>
@@ -146,11 +143,13 @@ export function CalorieWeek({
             </p>
             {entry && (
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {entry.calculation.source === "OVERRIDE"
-                  ? "Gasto manual"
-                  : entry.calculation.source === "ESTIMATE"
-                    ? "Gasto estimado"
-                    : "Configure seu gasto"}
+                {entry.caloriesBurnedSource === "DAILY"
+                  ? "Gasto informado no dia"
+                  : entry.caloriesBurnedSource === "PROFILE_OVERRIDE"
+                    ? "Fallback manual do perfil"
+                    : entry.caloriesBurnedSource === "ESTIMATE"
+                      ? "Fallback estimado do perfil"
+                      : "Configure ou informe o gasto"}
               </p>
             )}
           </div>

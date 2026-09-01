@@ -50,10 +50,15 @@ export type QuotationSummary = {
   issuedAt: string;
   validUntil?: string;
   sellerName: string;
+  sellerTradeName?: string;
   sellerDocument?: string;
   sellerEmail?: string;
   sellerPhone?: string;
   sellerAddress?: string;
+  sellerPrimaryColor: string;
+  sellerLogoAssetId?: string;
+  sellerLogoUrl?: string;
+  brandingLockedAt?: string;
   customerLegalName: string;
   customerTradeName?: string;
   customerDocument: string;

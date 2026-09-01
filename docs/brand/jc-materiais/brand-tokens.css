@@ -1,0 +1,17 @@
+:root {
+  --jc-forest: #005a3d;
+  --jc-green: #00875f;
+  --jc-mint: #00b982;
+  --jc-ink: #071611;
+  --jc-slate: #52655d;
+  --jc-mist: #eaf3ef;
+  --jc-paper: #f7faf8;
+  --jc-white: #ffffff;
+
+  --jc-gradient-primary: linear-gradient(135deg, #005a3d 0%, #00b982 100%);
+  --jc-font-display: "Sora", "Arial", sans-serif;
+  --jc-font-body: "Manrope", "Arial", sans-serif;
+  --jc-radius-sm: 8px;
+  --jc-radius-md: 14px;
+  --jc-radius-lg: 24px;
+}

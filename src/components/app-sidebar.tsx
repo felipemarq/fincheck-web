@@ -10,12 +10,15 @@ import {
   IconCalculator,
   IconFileInvoice,
   IconCashBanknote,
+  IconUserShield,
+  IconBuildingStore,
 } from "@tabler/icons-react";
 import { Building, SquareUser } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-import type { Entity } from "@/app/entities/Entity";
-import wordmark from "@/assets/jc-materiais-wordmark.png";
+import type { OrganizationPermission } from "@/app/entities/OrganizationAccess";
 import { useAuth } from "@/app/hooks/useAuth";
+import { PlatformBrand } from "@/components/PlatformBrand";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { EntityModal } from "@/view/modals/EntityModal";
@@ -29,77 +32,102 @@ import {
 } from "@/view/components/ui/sidebar";
 import { EntitySwitcher } from "./entity-switcher";
 
-const navMain = [
+const navMain: Array<{
+  title: string;
+  url: string;
+  icon: typeof IconLayoutDashboard;
+  permission: OrganizationPermission;
+}> = [
   {
     title: "Painel",
     url: "/dashboard",
     icon: IconLayoutDashboard,
+    permission: "dashboard.read",
   },
   {
     title: "Cotacoes",
     url: "/quotations",
     icon: IconFileInvoice,
+    permission: "quotations.read",
   },
   {
     title: "Ordens de compra",
     url: "/orders",
     icon: IconClipboardList,
+    permission: "orders.read",
   },
   {
     title: "Itens operacionais",
     url: "/items",
     icon: IconListDetails,
+    permission: "orders.read",
   },
   {
     title: "Pedidos a fornecedores",
     url: "/purchases",
     icon: IconShoppingCart,
+    permission: "purchases.read",
   },
   {
     title: "Clientes",
     url: "/customers",
     icon: IconUsers,
+    permission: "customers.read",
   },
   {
     title: "Produtos",
     url: "/products",
     icon: IconBox,
+    permission: "products.read",
   },
   {
     title: "Precificacao",
     url: "/pricing",
     icon: IconCalculator,
+    permission: "products.read",
   },
   {
     title: "Contas a receber",
     url: "/receivables",
     icon: IconCashBanknote,
+    permission: "finance.read",
   },
   {
     title: "Financeiro",
     url: "/finance",
     icon: IconCash,
+    permission: "finance.read",
+  },
+  {
+    title: "Organizacao",
+    url: "/settings/organization",
+    icon: IconBuildingStore,
+    permission: "organization.read",
+  },
+  {
+    title: "Equipe",
+    url: "/settings/team",
+    icon: IconUserShield,
+    permission: "members.read",
   },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user, signout, handleChangeSelectedEntityId, selectedEntityId } =
-    useAuth();
+  const navigate = useNavigate();
+  const {
+    user,
+    signout,
+    handleChangeSelectedEntityId,
+    selectedEntityId,
+    can,
+  } = useAuth();
   const [isCreateEntityModalOpen, setIsCreateEntityModalOpen] =
     React.useState(false);
-  const [entityBeingEdited, setEntityBeingEdited] =
-    React.useState<Entity | null>(null);
-
   const entities =
     user?.entities.map((entity) => ({
       ...entity,
-      logo: entity.type === "PF" ? SquareUser : Building,
+      icon: entity.type === "PF" ? SquareUser : Building,
     })) ?? [];
-
-  const activeEntity =
-    user?.entities.find((entity) => entity.id === selectedEntityId) ??
-    user?.entities[0] ??
-    null;
 
   return (
     <>
@@ -108,11 +136,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenu>
             <SidebarMenuItem>
               <div className="flex min-h-11 items-center px-2 py-1.5">
-                <img
-                  src={wordmark}
-                  alt="JC Materiais Hospitalares"
-                  className="h-10 w-auto max-w-full object-contain"
-                />
+                <PlatformBrand />
               </div>
             </SidebarMenuItem>
 
@@ -126,11 +150,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   activeEntityId={selectedEntityId ?? undefined}
                   onChange={handleChangeSelectedEntityId}
                   onCreateEntity={() => setIsCreateEntityModalOpen(true)}
-                  onEditActiveEntity={() => {
-                    if (activeEntity) {
-                      setEntityBeingEdited(activeEntity);
-                    }
-                  }}
+                  onEditActiveEntity={
+                    can("organization.update")
+                      ? () => navigate("/settings/organization")
+                      : undefined
+                  }
                 />
               </div>
             </SidebarMenuItem>
@@ -138,7 +162,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarHeader>
 
         <SidebarContent>
-          <NavMain items={navMain} />
+          <NavMain items={navMain.filter((item) => can(item.permission))} />
         </SidebarContent>
 
         <SidebarFooter>
@@ -150,13 +174,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         isOpen={isCreateEntityModalOpen}
         onClose={() => setIsCreateEntityModalOpen(false)}
         action="create"
-      />
-
-      <EntityModal
-        isOpen={Boolean(entityBeingEdited)}
-        onClose={() => setEntityBeingEdited(null)}
-        action="update"
-        entity={entityBeingEdited}
       />
     </>
   );

@@ -116,7 +116,8 @@ export function HealthProfileDialog({
           <DialogDescription>
             A meta funciona sozinha. Os dados corporais servem apenas para
             estimar gasto energetico e podem ser substituidos por um valor
-            diario informado por voce.
+            base informado por voce. Esse valor funciona como fallback nos
+            dias sem gasto total registrado.
           </DialogDescription>
         </DialogHeader>
 
@@ -170,7 +171,7 @@ export function HealthProfileDialog({
                   <p className="mt-1 max-w-lg text-xs leading-5 text-muted-foreground">
                     O gasto em repouso usa peso, altura, idade e o coeficiente
                     selecionado. O nivel de atividade transforma essa base em
-                    uma estimativa diaria.
+                    uma estimativa usada quando o dia nao possui gasto proprio.
                   </p>
                 </div>
               </div>
@@ -240,7 +241,7 @@ export function HealthProfileDialog({
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="Gasto diario manual (opcional)" className="sm:col-span-2">
+              <Field label="Gasto base manual (opcional)" className="sm:col-span-2">
                 <NumericFormat
                   customInput={Input}
                   value={overrideKcal ?? ""}

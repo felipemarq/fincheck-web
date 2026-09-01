@@ -6,14 +6,20 @@ import type { Entity } from "../entities/Entity";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { treatAxiosError } from "../utils/treatAxiosError";
 import { AxiosError } from "axios";
-import logo from "@/assets/jc-materiais-logo-stacked.png";
 import { usersService } from "../services/usersService";
 import { authStorage, type AuthSession } from "../services/authStorage";
+import type {
+  OrganizationPermission,
+  OrganizationRole,
+} from "../entities/OrganizationAccess";
 
 interface AuthContextValue {
   signedIn: boolean;
   user: User | null;
   activeEntity: Entity | null;
+  activeRole: OrganizationRole | null;
+  activePermissions: OrganizationPermission[];
+  can(permission: OrganizationPermission): boolean;
   signin(session: AuthSession): void;
   signout(): void;
   selectedEntityId: string | null;
@@ -23,18 +29,25 @@ interface AuthContextValue {
 export const AuthContext = createContext({} as AuthContextValue);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = useQueryClient();
   const [signedIn, setSignedIn] = useState<boolean>(() =>
     authStorage.hasAccessToken()
   );
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(() =>
     authStorage.getSelectedEntityId()
   );
-  const handleChangeSelectedEntityId = useCallback((entityId: string) => {
-    authStorage.setSelectedEntityId(entityId);
-    setSelectedEntityId(entityId);
-  }, []);
+  const handleChangeSelectedEntityId = useCallback(
+    (entityId: string) => {
+      const isOrganizationQuery = (query: { queryKey: readonly unknown[] }) =>
+        query.queryKey[0] !== QueryKeys.ME;
 
-  const queryClient = useQueryClient();
+      void queryClient.cancelQueries({ predicate: isOrganizationQuery });
+      queryClient.removeQueries({ predicate: isOrganizationQuery });
+      authStorage.setSelectedEntityId(entityId);
+      setSelectedEntityId(entityId);
+    },
+    [queryClient]
+  );
 
   const signin = useCallback((session: AuthSession) => {
     authStorage.setSession(session);
@@ -53,7 +66,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     queryKey: [QueryKeys.ME],
     queryFn: () => usersService.me(),
     enabled: signedIn,
-    staleTime: Infinity,
+    // Refresh before the 12-hour organization logo URL expires.
+    staleTime: 10 * 60 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -99,6 +113,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [data?.entities, selectedEntityId]
   );
 
+  const activePermissions = activeEntity?.permissions ?? [];
+  const can = useCallback(
+    (permission: OrganizationPermission) =>
+      activePermissions.includes(permission),
+    [activePermissions]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -107,11 +128,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signout,
         user: data ?? null,
         activeEntity,
+        activeRole: activeEntity?.role ?? null,
+        activePermissions,
+        can,
         selectedEntityId,
         handleChangeSelectedEntityId,
       }}
     >
-      {isFetching && <PageLoader isLoading={isFetching} logoPath={logo} />}
+      {isFetching && <PageLoader isLoading={isFetching} />}
 
       {!isFetching && children}
     </AuthContext.Provider>

@@ -38,6 +38,7 @@ import {
   type PurchaseOrderBatchExportProgress,
   type PurchaseOrderBatchExportResult,
 } from "@/view/pages/PurchaseOrders/exportPurchaseOrdersBatchPdf";
+import type { PdfOrganizationBrand } from "@/view/utils/pdfOrganizationBrand";
 
 type LifecycleFilter = PurchaseOrderLifecycleStatus | "ALL";
 type ProgressFilter = PurchaseOrderProgress | "ALL";
@@ -56,7 +57,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   entityId: string;
-  entityName?: string;
+  brand: PdfOrganizationBrand;
   initialFilters?: PurchaseOrderBatchExportFilters;
 };
 
@@ -68,7 +69,7 @@ export function PurchaseOrderBatchExportModal({
   isOpen,
   onClose,
   entityId,
-  entityName,
+  brand,
   initialFilters,
 }: Props) {
   const [search, setSearch] = useState(initialFilters?.search ?? "");
@@ -181,7 +182,7 @@ export function PurchaseOrderBatchExportModal({
     try {
       const result = await exportPurchaseOrdersBatchPdf({
         entityId,
-        entityName,
+        brand,
         orderIds: matchingOrders.map((order) => order.id),
         copies,
         maxPages: pageLimit,

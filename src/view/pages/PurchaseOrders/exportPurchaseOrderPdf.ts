@@ -4,7 +4,15 @@ import type {
   PurchaseOrder,
   PurchaseOrderItem,
 } from "@/app/entities/PurchaseOrder";
-import brandIconUrl from "@/assets/jc-materiais-icon.png";
+import {
+  fitPdfLogo,
+  loadPdfBrandLogo,
+  mixPdfColor,
+  parsePdfColor,
+  PLATFORM_NAME,
+  type PdfBrandLogo,
+  type PdfOrganizationBrand,
+} from "@/view/utils/pdfOrganizationBrand";
 import {
   lifecycleLabels,
   progressLabels,
@@ -31,41 +39,24 @@ const PAGE = {
   contentBottom: 278,
 };
 
-const COLORS = {
+function buildDocumentColors(primaryColor?: string) {
+  const primary = parsePdfColor(primaryColor);
+
+  return {
   ink: [20, 31, 27] as RgbColor,
   muted: [94, 105, 100] as RgbColor,
   line: [218, 226, 222] as RgbColor,
   soft: [245, 248, 246] as RgbColor,
   white: [255, 255, 255] as RgbColor,
-  emerald: [5, 150, 105] as RgbColor,
-  emeraldDark: [4, 120, 87] as RgbColor,
-  emeraldSoft: [226, 247, 238] as RgbColor,
+    emerald: primary as RgbColor,
+    emeraldDark: mixPdfColor(primary, [0, 0, 0], 0.2) as RgbColor,
+    emeraldSoft: mixPdfColor(primary, [255, 255, 255], 0.86) as RgbColor,
   amber: [180, 83, 9] as RgbColor,
   amberSoft: [255, 247, 220] as RgbColor,
-};
-
-const BRAND_NAME = "JC Materiais Hospitalares";
-
-async function loadAssetAsDataUrl(assetUrl: string) {
-  try {
-    const response = await fetch(assetUrl);
-
-    if (!response.ok) {
-      return undefined;
-    }
-
-    const blob = await response.blob();
-
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return undefined;
-  }
+  };
 }
+
+let COLORS = buildDocumentColors();
 
 function setFillColor(document: jsPDF, color: RgbColor) {
   document.setFillColor(color[0], color[1], color[2]);
@@ -133,25 +124,26 @@ function ensureSpace(document: jsPDF, cursorY: number, requiredHeight: number) {
 function drawFirstPageHeader(
   document: jsPDF,
   order: PurchaseOrder,
-  entityName: string,
-  brandIcon?: string
+  brand: PdfOrganizationBrand,
+  brandLogo?: PdfBrandLogo
 ) {
   setFillColor(document, COLORS.ink);
   document.rect(0, 0, PAGE.width, 51, "F");
   setFillColor(document, COLORS.emerald);
   document.rect(0, 0, 4, 51, "F");
 
-  const organizationTextX = brandIcon ? PAGE.margin + 16 : PAGE.margin;
+  const organizationTextX = brandLogo ? PAGE.margin + 16 : PAGE.margin;
 
-  if (brandIcon) {
+  if (brandLogo) {
+    const size = fitPdfLogo(brandLogo, 13, 13);
     document.addImage(
-      brandIcon,
+      brandLogo.dataUrl,
       "PNG",
-      PAGE.margin,
-      4,
-      13,
-      13,
-      "jc-materiais-icon",
+      PAGE.margin + (13 - size.width) / 2,
+      4 + (13 - size.height) / 2,
+      size.width,
+      size.height,
+      "organization-logo",
       "FAST"
     );
   }
@@ -159,9 +151,22 @@ function drawFirstPageHeader(
   setTextColor(document, COLORS.emeraldSoft);
   document.setFont("helvetica", "bold");
   document.setFontSize(9);
-  document.text(entityName.toUpperCase(), organizationTextX, 13, {
+  document.text(brand.name.toUpperCase(), organizationTextX, 13, {
     maxWidth: 106,
   });
+
+  const legalIdentity = [
+    brand.legalName && brand.legalName !== brand.name ? brand.legalName : undefined,
+    brand.document,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  if (legalIdentity) {
+    document.setFont("helvetica", "normal");
+    document.setFontSize(6.2);
+    setTextColor(document, COLORS.white);
+    document.text(legalIdentity, organizationTextX, 18, { maxWidth: 106 });
+  }
 
   setTextColor(document, COLORS.white);
   document.setFont("helvetica", "normal");
@@ -539,9 +544,9 @@ function drawTextBlock(
 function drawPageChrome(
   document: jsPDF,
   order: PurchaseOrder,
-  entityName: string,
+  brand: PdfOrganizationBrand,
   generatedAt: Date,
-  brandIcon?: string
+  brandLogo?: PdfBrandLogo
 ) {
   const totalPages = document.getNumberOfPages();
 
@@ -549,17 +554,18 @@ function drawPageChrome(
     document.setPage(pageNumber);
 
     if (pageNumber > 1) {
-      const organizationTextX = brandIcon ? PAGE.margin + 10 : PAGE.margin;
+      const organizationTextX = brandLogo ? PAGE.margin + 10 : PAGE.margin;
 
-      if (brandIcon) {
+      if (brandLogo) {
+        const size = fitPdfLogo(brandLogo, 7, 7);
         document.addImage(
-          brandIcon,
+          brandLogo.dataUrl,
           "PNG",
-          PAGE.margin,
-          5,
-          7,
-          7,
-          "jc-materiais-icon",
+          PAGE.margin + (7 - size.width) / 2,
+          5 + (7 - size.height) / 2,
+          size.width,
+          size.height,
+          "organization-logo",
           "FAST"
         );
       }
@@ -567,7 +573,7 @@ function drawPageChrome(
       setTextColor(document, COLORS.ink);
       document.setFont("helvetica", "bold");
       document.setFontSize(8);
-      document.text(entityName, organizationTextX, 11.5, { maxWidth: 105 });
+      document.text(brand.name, organizationTextX, 11.5, { maxWidth: 105 });
 
       document.setFont("helvetica", "normal");
       setTextColor(document, COLORS.muted);
@@ -589,7 +595,7 @@ function drawPageChrome(
     document.setFontSize(6.8);
     setTextColor(document, COLORS.muted);
     document.text(
-      `Controle interno gerado por ${BRAND_NAME} em ${formatGeneratedAt(generatedAt)}`,
+      `Controle interno gerado pela plataforma ${PLATFORM_NAME} em ${formatGeneratedAt(generatedAt)}`,
       PAGE.margin,
       290
     );
@@ -613,12 +619,13 @@ function filenamePart(value: string) {
 
 export async function buildPurchaseOrderPdf(
   order: PurchaseOrder,
-  entityName?: string
+  brand: PdfOrganizationBrand
 ) {
-  const [{ jsPDF }, { autoTable }, brandIcon] = await Promise.all([
+  COLORS = buildDocumentColors(brand.primaryColor);
+  const [{ jsPDF }, { autoTable }, brandLogo] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
-    loadAssetAsDataUrl(brandIconUrl),
+    loadPdfBrandLogo(brand.logoUrl),
   ]);
   const document = new jsPDF({
     orientation: "portrait",
@@ -626,17 +633,16 @@ export async function buildPurchaseOrderPdf(
     format: "a4",
     compress: true,
   });
-  const organization = normalizeValue(entityName);
   const generatedAt = new Date();
 
   document.setProperties({
     title: `Ordem de compra ${order.orderNumber}`,
     subject: `Ordem de compra de ${order.customer.legalName}`,
-    author: organization,
-    creator: BRAND_NAME,
+    author: brand.legalName || brand.name,
+    creator: PLATFORM_NAME,
   });
 
-  drawFirstPageHeader(document, order, organization, brandIcon);
+  drawFirstPageHeader(document, order, brand, brandLogo);
 
   let cursorY = 59;
   cursorY = drawSectionTitle(document, cursorY, "Dados comerciais");
@@ -744,16 +750,16 @@ export async function buildPurchaseOrderPdf(
     drawTextBlock(document, cursorY, "Observações", order.notes);
   }
 
-  drawPageChrome(document, order, organization, generatedAt, brandIcon);
+  drawPageChrome(document, order, brand, generatedAt, brandLogo);
 
   return document;
 }
 
 export async function exportPurchaseOrderPdf(
   order: PurchaseOrder,
-  entityName?: string
+  brand: PdfOrganizationBrand
 ) {
-  const document = await buildPurchaseOrderPdf(order, entityName);
+  const document = await buildPurchaseOrderPdf(order, brand);
   const orderNumber = filenamePart(order.orderNumber) || "sem-numero";
   const customer =
     filenamePart(order.customer.tradeName || order.customer.legalName) ||

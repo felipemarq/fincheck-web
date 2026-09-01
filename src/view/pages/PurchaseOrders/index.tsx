@@ -39,6 +39,7 @@ import {
   PurchaseOrderBatchExportModal,
   type PurchaseOrderBatchExportFilters,
 } from "@/view/modals/PurchaseOrderBatchExportModal";
+import { organizationBrandFromEntity } from "@/view/utils/pdfOrganizationBrand";
 import {
   formatCurrency,
   formatDate,
@@ -501,7 +502,7 @@ export default function PurchaseOrders() {
           isOpen
           onClose={() => setIsBatchExportOpen(false)}
           entityId={selectedEntityId}
-          entityName={activeEntity?.name}
+          brand={organizationBrandFromEntity(activeEntity)}
           initialFilters={batchExportFilters}
         />
       )}

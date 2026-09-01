@@ -1,4 +1,5 @@
 import {
+  IconActivity,
   IconFlame,
   IconPencil,
   IconScale,
@@ -142,8 +143,16 @@ export function CalorieHistory({
           balance === null
             ? "Sem gasto configurado"
             : balance >= 0
-              ? "Deficit estimado de " + formatKcal(balance) + " kcal"
-              : "Superavit estimado de " + formatKcal(balance) + " kcal";
+              ? "Deficit de " + formatKcal(balance) + " kcal"
+              : "Superavit de " + formatKcal(balance) + " kcal";
+        const burnedSourceLabel =
+          entry.caloriesBurnedSource === "DAILY"
+            ? "informado no dia"
+            : entry.caloriesBurnedSource === "PROFILE_OVERRIDE"
+              ? "fallback manual"
+              : entry.caloriesBurnedSource === "ESTIMATE"
+                ? "fallback estimado"
+                : "nao informado";
         return (
           <div
             key={entry.id}
@@ -170,9 +179,19 @@ export function CalorieHistory({
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 pl-[3.25rem] sm:justify-end sm:pl-0">
-              <p className="text-lg font-semibold tabular-nums">
-                {formatKcal(entry.caloriesConsumed)} kcal
-              </p>
+              <div className="space-y-1 text-right tabular-nums">
+                <p className="flex items-center justify-end gap-1.5 text-sm font-medium">
+                  <IconFlame className="size-3.5 text-amber-300" />
+                  Consumido {formatKcal(entry.caloriesConsumed)} kcal
+                </p>
+                <p className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
+                  <IconActivity className="size-3.5 text-sky-300" />
+                  Gasto {entry.effectiveCaloriesBurned === null
+                    ? "--"
+                    : formatKcal(entry.effectiveCaloriesBurned) + " kcal"}
+                  {` (${burnedSourceLabel})`}
+                </p>
+              </div>
               <div className="flex gap-1">
                 <Button
                   type="button"

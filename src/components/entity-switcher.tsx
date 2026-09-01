@@ -19,7 +19,7 @@ import {
 import type { Entity } from "@/app/entities/Entity";
 
 interface EntityWithLogo extends Entity {
-  logo: React.ElementType;
+  icon: React.ElementType;
 }
 
 interface EntitySwitcherProps {
@@ -82,7 +82,15 @@ export function EntitySwitcher({
                   className="flex aspect-square size-8 items-center justify-center rounded-md text-white"
                   style={{ backgroundColor: activeEntity.color }}
                 >
-                  <activeEntity.logo className="size-4" />
+                  {activeEntity.profile.logo ? (
+                    <img
+                      src={activeEntity.profile.logo.url}
+                      alt=""
+                      className="size-7 rounded-sm object-contain"
+                    />
+                  ) : (
+                    <activeEntity.icon className="size-4" />
+                  )}
                 </div>
                 <div className="min-w-0 text-left">
                   <div className="truncate font-medium">{activeEntity.name}</div>
@@ -115,7 +123,15 @@ export function EntitySwitcher({
                   className="flex size-8 items-center justify-center rounded-md text-white"
                   style={{ backgroundColor: entity.color }}
                 >
-                  <entity.logo className="size-4 shrink-0" />
+                  {entity.profile.logo ? (
+                    <img
+                      src={entity.profile.logo.url}
+                      alt=""
+                      className="size-7 rounded-sm object-contain"
+                    />
+                  ) : (
+                    <entity.icon className="size-4 shrink-0" />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{entity.name}</div>
@@ -132,7 +148,7 @@ export function EntitySwitcher({
             <DropdownMenuItem
               className="gap-2 p-2"
               onClick={onEditActiveEntity}
-              disabled={!activeEntity}
+              disabled={!onEditActiveEntity}
             >
               <div className="bg-background flex size-6 items-center justify-center rounded-md border">
                 <PencilLine className="size-4" />

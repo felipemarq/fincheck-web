@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" role="img" aria-labelledby="title description">
+  <title id="title">Logo vertical JC Materiais Hospitalares</title>
+  <desc id="description">Simbolo da JC sobre o nome Materiais Hospitalares.</desc>
+  <defs>
+    <linearGradient id="top" x1="43" y1="20" x2="199" y2="95" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#004D35" />
+      <stop offset="1" stop-color="#007A55" />
+    </linearGradient>
+    <linearGradient id="left" x1="31" y1="84" x2="123" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00875F" />
+      <stop offset="1" stop-color="#00B982" />
+    </linearGradient>
+    <linearGradient id="right" x1="221" y1="81" x2="139" y2="239" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00A977" />
+      <stop offset="1" stop-color="#007A55" />
+    </linearGradient>
+    <mask id="cross-cutout">
+      <rect width="256" height="256" fill="#fff" />
+      <path d="M118 36h20c6 0 10 4 10 10v7h17c7 0 11 4 11 11s-4 11-11 11h-17v8c0 6-4 10-10 10h-20c-6 0-10-4-10-10v-8H90c-7 0-11-4-11-11s4-11 11-11h18v-7c0-6 4-10 10-10Z" fill="#000" />
+    </mask>
+  </defs>
+  <g transform="translate(192 18)">
+    <path d="M12 55 118 8c7-3 13-3 20 0l106 47-101 43c-10 5-20 5-30 0L12 55Z" fill="url(#top)" mask="url(#cross-cutout)" />
+    <path d="M12 69 111 110c8 3 12 9 12 18v108c0 8-4 13-10 15-4 1-8 0-12-2l-76-36c-9-4-13-11-13-21v-29l34 16v11c0 5 2 8 7 10l25 12c7 3 11 0 11-8v-70l-77-32V69Z" fill="url(#left)" />
+    <path d="m133 111 111-42v33l-77 30v59l43-17v-18l34-13v48c0 9-4 16-13 20l-80 38c-5 2-9 2-13-1-3-3-5-7-5-12V111Z" fill="url(#right)" />
+  </g>
+  <text x="320" y="395" text-anchor="middle" fill="#005A3D" font-family="Sora, Montserrat, Arial, sans-serif" font-size="75" font-weight="700" letter-spacing="-2">JC MATERIAIS</text>
+  <text x="320" y="465" text-anchor="middle" fill="#00875F" font-family="Manrope, Arial, sans-serif" font-size="36" font-weight="600" letter-spacing="11">HOSPITALARES</text>
+</svg>

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "brand": {
+    "color": {
+      "forest": { "$type": "color", "$value": "#005A3D" },
+      "green": { "$type": "color", "$value": "#00875F" },
+      "mint": { "$type": "color", "$value": "#00B982" },
+      "ink": { "$type": "color", "$value": "#071611" },
+      "slate": { "$type": "color", "$value": "#52655D" },
+      "mist": { "$type": "color", "$value": "#EAF3EF" },
+      "paper": { "$type": "color", "$value": "#F7FAF8" },
+      "white": { "$type": "color", "$value": "#FFFFFF" }
+    },
+    "gradient": {
+      "primary": {
+        "$type": "gradient",
+        "$value": [
+          { "color": "#005A3D", "position": 0 },
+          { "color": "#00B982", "position": 1 }
+        ]
+      }
+    },
+    "font": {
+      "display": { "$type": "fontFamily", "$value": "Sora" },
+      "body": { "$type": "fontFamily", "$value": "Manrope" },
+      "fallback": { "$type": "fontFamily", "$value": "Arial" }
+    },
+    "radius": {
+      "small": { "$type": "dimension", "$value": "8px" },
+      "medium": { "$type": "dimension", "$value": "14px" },
+      "large": { "$type": "dimension", "$value": "24px" }
+    }
+  }
+}

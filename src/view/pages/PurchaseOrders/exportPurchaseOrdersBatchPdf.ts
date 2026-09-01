@@ -1,4 +1,8 @@
 import { purchaseOrderService } from "@/app/services/purchaseOrderService";
+import {
+  PLATFORM_NAME,
+  type PdfOrganizationBrand,
+} from "@/view/utils/pdfOrganizationBrand";
 import { buildPurchaseOrderPdf } from "./exportPurchaseOrderPdf";
 
 export const DEFAULT_BATCH_PAGE_LIMIT = 50;
@@ -24,7 +28,7 @@ export type PurchaseOrderBatchExportResult = {
 
 type ExportPurchaseOrdersBatchPdfParams = {
   entityId: string;
-  entityName?: string;
+  brand: PdfOrganizationBrand;
   orderIds: string[];
   copies: number;
   maxPages: number;
@@ -68,7 +72,7 @@ function makeFilename() {
 
 export async function exportPurchaseOrdersBatchPdf({
   entityId,
-  entityName,
+  brand,
   orderIds,
   copies,
   maxPages,
@@ -92,8 +96,8 @@ export async function exportPurchaseOrdersBatchPdf({
   let limitReached = false;
 
   batchDocument.setTitle("Ordens de compra");
-  batchDocument.setAuthor(entityName || "JC Materiais Hospitalares");
-  batchDocument.setCreator("JC Materiais Hospitalares");
+  batchDocument.setAuthor(brand.legalName || brand.name);
+  batchDocument.setCreator(PLATFORM_NAME);
   batchDocument.setCreationDate(new Date());
 
   onProgress?.({
@@ -134,7 +138,7 @@ export async function exportPurchaseOrdersBatchPdf({
 
       const orderDocument = await buildPurchaseOrderPdf(
         detailedOrders[offset],
-        entityName
+        brand
       );
       const sourceDocument = await PDFDocument.load(
         new Uint8Array(orderDocument.output("arraybuffer"))

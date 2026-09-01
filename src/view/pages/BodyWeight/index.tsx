@@ -46,10 +46,17 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/view/components/ui/tabs";
-import { calculateMovingAverage, comparePeriods } from "./analytics";
+import {
+  calculateGoalProjection,
+  calculateMovingAverage,
+  comparePeriods,
+  summarizeHealthWeek,
+} from "./analytics";
 import { CalorieWeek } from "./CalorieWeek";
 import { CalorieHistory, WeightHistory } from "./HealthHistory";
 import { HealthProfileDialog } from "./HealthProfileDialog";
+import { TodayCheckIn, type TodayCheckInValues } from "./TodayCheckIn";
+import { WeeklyOverview } from "./WeeklyOverview";
 import { WeightChart } from "./WeightChart";
 
 type WeightRange = "30" | "90" | "365" | "all";
@@ -102,6 +109,7 @@ export default function BodyWeight() {
   const [editingWeightDate, setEditingWeightDate] = useState<string | null>(null);
   const [loggedOn, setLoggedOn] = useState(today);
   const [caloriesConsumed, setCaloriesConsumed] = useState<number | null>(null);
+  const [caloriesBurned, setCaloriesBurned] = useState<number | null>(null);
   const [editingCalorieDate, setEditingCalorieDate] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -130,26 +138,17 @@ export default function BodyWeight() {
   const latestMovingPoint = calculateMovingAverage(allWeights).at(-1);
   const weeklyComparison = comparePeriods(allWeights, 7, today);
   const monthlyComparison = comparePeriods(allWeights, 30, today);
-  const weekFrom = format(subDays(parseISO(today), 6), "yyyy-MM-dd");
-  const weeklyCalories = allCalories.filter(
-    (entry) => entry.loggedOn >= weekFrom && entry.loggedOn <= today
-  );
-  const weeklyConsumed = weeklyCalories.reduce(
-    (sum, entry) => sum + entry.caloriesConsumed,
-    0
-  );
-  const calculableWeeklyCalories = weeklyCalories.filter(
-    (entry) => entry.balanceKcal !== null
-  );
-  const weeklyBalance =
-    calculableWeeklyCalories.length === 0
-      ? null
-      : calculableWeeklyCalories.reduce(
-          (sum, entry) => sum + (entry.balanceKcal ?? 0),
-          0
-        );
   const profile = profileQuery.data?.profile ?? null;
   const calculation = profileQuery.data?.calculation;
+  const weeklySummary = summarizeHealthWeek(allWeights, allCalories, today);
+  const goalProjection = calculateGoalProjection({
+    entries: allWeights,
+    targetWeightKg: profile?.targetWeightKg ?? null,
+    targetDate: profile?.targetDate ?? null,
+    endDate: today,
+  });
+  const todayWeight = allWeights.find((entry) => entry.measuredOn === today);
+  const todayCalories = allCalories.find((entry) => entry.loggedOn === today);
 
   const resetWeightForm = () => {
     setMeasuredOn(today);
@@ -160,6 +159,7 @@ export default function BodyWeight() {
   const resetCalorieForm = () => {
     setLoggedOn(today);
     setCaloriesConsumed(null);
+    setCaloriesBurned(null);
     setEditingCalorieDate(null);
   };
 
@@ -203,14 +203,109 @@ export default function BodyWeight() {
       toast.error("Informe um total entre 0 e 20.000 kcal.");
       return;
     }
+    if (
+      caloriesBurned !== null &&
+      (caloriesBurned < 500 ||
+        caloriesBurned > 10_000 ||
+        !Number.isInteger(caloriesBurned))
+    ) {
+      toast.error("Informe um gasto total entre 500 e 10.000 kcal.");
+      return;
+    }
 
     try {
-      await upsertCalorieMutation.mutateAsync({ loggedOn, caloriesConsumed });
+      await upsertCalorieMutation.mutateAsync({
+        loggedOn,
+        caloriesConsumed,
+        caloriesBurned,
+      });
       await queryClient.invalidateQueries({ queryKey: [QueryKeys.DAILY_CALORIES] });
       toast.success(
         editingCalorieDate ? "Calorias atualizadas." : "Calorias registradas."
       );
       resetCalorieForm();
+    } catch (error) {
+      treatAxiosError(error);
+    }
+  };
+
+  const saveToday = async ({
+    weightKg: todayWeightKg,
+    caloriesConsumed: todayCaloriesConsumed,
+    caloriesBurned: todayCaloriesBurned,
+  }: TodayCheckInValues) => {
+    if (
+      todayWeightKg === null &&
+      todayCaloriesConsumed === null &&
+      todayCaloriesBurned === null
+    ) {
+      toast.error("Informe o peso, o consumo, o gasto ou mais de um valor.");
+      return;
+    }
+    if (
+      todayWeightKg !== null &&
+      (todayWeightKg < 20 || todayWeightKg > 500)
+    ) {
+      toast.error("Informe um peso entre 20 e 500 kg.");
+      return;
+    }
+    if (todayCaloriesBurned !== null && todayCaloriesConsumed === null) {
+      toast.error("Informe tambem o consumo para registrar o gasto do dia.");
+      return;
+    }
+    if (
+      todayCaloriesBurned !== null &&
+      (todayCaloriesBurned < 500 ||
+        todayCaloriesBurned > 10_000 ||
+        !Number.isInteger(todayCaloriesBurned))
+    ) {
+      toast.error("Informe um gasto total entre 500 e 10.000 kcal.");
+      return;
+    }
+    if (
+      todayCaloriesConsumed !== null &&
+      (todayCaloriesConsumed < 0 ||
+        todayCaloriesConsumed > 20_000 ||
+        !Number.isInteger(todayCaloriesConsumed))
+    ) {
+      toast.error("Informe um total entre 0 e 20.000 kcal.");
+      return;
+    }
+
+    const shouldSaveWeight =
+      todayWeightKg !== null && todayWeightKg !== todayWeight?.weightKg;
+    const shouldSaveCalories =
+      todayCaloriesConsumed !== null &&
+      (todayCaloriesConsumed !== todayCalories?.caloriesConsumed ||
+        todayCaloriesBurned !== todayCalories?.caloriesBurned);
+    if (!shouldSaveWeight && !shouldSaveCalories) {
+      toast.info("Os valores de hoje ja estao atualizados.");
+      return;
+    }
+
+    try {
+      const operations: Promise<unknown>[] = [];
+      if (shouldSaveWeight) {
+        operations.push(
+          upsertWeightMutation.mutateAsync({
+            measuredOn: today,
+            weightKg: todayWeightKg!,
+          })
+        );
+      }
+      if (shouldSaveCalories) {
+        operations.push(
+          upsertCalorieMutation.mutateAsync({
+            loggedOn: today,
+            caloriesConsumed: todayCaloriesConsumed!,
+            caloriesBurned: todayCaloriesBurned,
+          })
+        );
+      }
+
+      await Promise.all(operations);
+      await invalidateWeightDependencies();
+      toast.success("Check-in de hoje salvo.");
     } catch (error) {
       treatAxiosError(error);
     }
@@ -228,6 +323,7 @@ export default function BodyWeight() {
     setEntryTab("calories");
     setLoggedOn(entry.loggedOn);
     setCaloriesConsumed(entry.caloriesConsumed);
+    setCaloriesBurned(entry.caloriesBurned);
     setEditingCalorieDate(entry.loggedOn);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -328,14 +424,25 @@ export default function BodyWeight() {
         </div>
       </section>
 
+      <TodayCheckIn
+        key={`${todayWeight?.updatedAt ?? "no-weight"}-${todayCalories?.updatedAt ?? "no-calories"}`}
+        initialWeightKg={todayWeight?.weightKg ?? null}
+        initialCaloriesConsumed={todayCalories?.caloriesConsumed ?? null}
+        initialCaloriesBurned={todayCalories?.caloriesBurned ?? null}
+        isSaving={
+          upsertWeightMutation.isPending || upsertCalorieMutation.isPending
+        }
+        onSave={saveToday}
+      />
+
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(18rem,0.68fr)_minmax(0,1.55fr)]">
         <Card className="min-w-0 overflow-hidden xl:sticky xl:top-6">
           <div className="h-1 bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-300" />
           <CardHeader className="pt-1">
-            <CardTitle>Registro diario</CardTitle>
+            <CardTitle>Registro por data</CardTitle>
             <CardDescription>
-              Cada data possui um registro de peso e um de calorias. Salvar
-              novamente atualiza o valor daquele dia.
+              Use este formulario para dias anteriores ou para corrigir um
+              registro. Salvar novamente atualiza o valor da data.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -433,6 +540,28 @@ export default function BodyWeight() {
                       Informe o total do dia. Refeicoes individuais ficam fora desta versao.
                     </p>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="calorie-burned">Gasto total do dia (opcional)</Label>
+                    <NumericFormat
+                      id="calorie-burned"
+                      customInput={Input}
+                      value={caloriesBurned ?? ""}
+                      decimalScale={0}
+                      decimalSeparator=","
+                      thousandSeparator="."
+                      suffix=" kcal"
+                      allowNegative={false}
+                      inputMode="numeric"
+                      placeholder="Ex.: 2.650 kcal"
+                      onValueChange={({ floatValue }) =>
+                        setCaloriesBurned(floatValue ?? null)
+                      }
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Use o gasto energetico total, nao apenas o exercicio. Se
+                      ficar vazio, o sistema usa o gasto do perfil.
+                    </p>
+                  </div>
                   <Button
                     type="submit"
                     className="w-full"
@@ -481,6 +610,11 @@ export default function BodyWeight() {
               </Button>
             </CardContent>
           </Card>
+
+          <WeeklyOverview
+            summary={weeklySummary}
+            projection={goalProjection}
+          />
 
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
@@ -565,25 +699,25 @@ export default function BodyWeight() {
                 tone="sky"
               />
               <MetricCard
-                label="Gasto diario usado"
+                label="Gasto base do perfil"
                 value={calculation?.effectiveDailyExpenditureKcal ? formatKcal(calculation.effectiveDailyExpenditureKcal) + " kcal" : "--"}
-                helper={calculation?.source === "OVERRIDE" ? "Valor manual" : calculation?.source === "ESTIMATE" ? "Estimativa com atividade" : "Configure os dados"}
+                helper={calculation?.source === "OVERRIDE" ? "Fallback manual do perfil" : calculation?.source === "ESTIMATE" ? "Fallback estimado do perfil" : "Configure o fallback"}
                 icon={<IconFlame className="size-5" />}
                 tone="amber"
               />
               <MetricCard
                 label="Consumo registrado"
-                value={formatKcal(weeklyConsumed) + " kcal"}
-                helper={weeklyCalories.length + "/7 dias registrados"}
+                value={formatKcal(weeklySummary.totalConsumedKcal) + " kcal"}
+                helper={weeklySummary.calorieDays + "/7 dias registrados"}
                 icon={<IconCalendar className="size-5" />}
                 tone="slate"
               />
               <MetricCard
                 label="Balanco semanal"
-                value={formatWeeklyBalance(weeklyBalance)}
-                helper={calculableWeeklyCalories.length + " dias com calculo"}
+                value={formatWeeklyBalance(weeklySummary.totalBalanceKcal)}
+                helper={weeklySummary.calculableDays + " dias com calculo"}
                 icon={<IconChartLine className="size-5" />}
-                tone={weeklyBalance !== null && weeklyBalance < 0 ? "amber" : "emerald"}
+                tone={weeklySummary.totalBalanceKcal !== null && weeklySummary.totalBalanceKcal < 0 ? "amber" : "emerald"}
               />
             </div>
           </section>
@@ -592,8 +726,8 @@ export default function BodyWeight() {
             <CardHeader className="border-b">
               <CardTitle>Consumo e gasto por dia</CardTitle>
               <CardDescription>
-                Deficit positivo significa que o gasto usado ficou acima do consumo informado.
-                O total semanal considera somente dias registrados.
+                Deficit positivo significa que o gasto do dia ficou acima do
+                consumo informado. Sem gasto diario, o perfil funciona como fallback.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-5">

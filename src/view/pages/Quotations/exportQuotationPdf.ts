@@ -1,7 +1,14 @@
 import type { jsPDF } from "jspdf";
 
 import type { Quotation, QuotationItem } from "@/app/entities/Quotation";
-import brandIconUrl from "@/assets/jc-materiais-icon.png";
+import {
+  fitPdfLogo,
+  loadPdfBrandLogo,
+  mixPdfColor,
+  parsePdfColor,
+  PLATFORM_NAME,
+  type PdfBrandLogo,
+} from "@/view/utils/pdfOrganizationBrand";
 import {
   formatQuotationCurrency,
   formatQuotationDate,
@@ -24,18 +31,22 @@ const PAGE = {
   bottom: 278,
 };
 
-const COLORS = {
+function buildDocumentColors(primaryColor?: string) {
+  const primary = parsePdfColor(primaryColor);
+
+  return {
   ink: [20, 31, 27] as RgbColor,
   muted: [94, 105, 100] as RgbColor,
   line: [218, 226, 222] as RgbColor,
   soft: [245, 248, 246] as RgbColor,
   white: [255, 255, 255] as RgbColor,
-  emerald: [5, 150, 105] as RgbColor,
-  emeraldDark: [4, 120, 87] as RgbColor,
-  emeraldSoft: [226, 247, 238] as RgbColor,
-};
+    emerald: primary as RgbColor,
+    emeraldDark: mixPdfColor(primary, [0, 0, 0], 0.2) as RgbColor,
+    emeraldSoft: mixPdfColor(primary, [255, 255, 255], 0.86) as RgbColor,
+  };
+}
 
-const BRAND_NAME = "JC Materiais Hospitalares";
+let COLORS = buildDocumentColors();
 
 function setFillColor(document: jsPDF, color: RgbColor) {
   document.setFillColor(...color);
@@ -80,16 +91,6 @@ function ensureSpace(document: jsPDF, cursorY: number, requiredHeight: number) {
   if (cursorY + requiredHeight <= PAGE.bottom) return cursorY;
   document.addPage();
   return PAGE.top;
-}
-
-async function loadAssetAsDataUrl(assetUrl: string) {
-  try {
-    const response = await fetch(assetUrl);
-    if (!response.ok) return undefined;
-    return await blobToDataUrl(await response.blob());
-  } catch {
-    return undefined;
-  }
 }
 
 function blobToDataUrl(blob: Blob) {
@@ -151,17 +152,18 @@ async function loadGalleryImage(url: string) {
 function drawFirstPageHeader(
   document: jsPDF,
   quotation: Quotation,
-  brandIcon?: string
+  brandLogo?: PdfBrandLogo
 ) {
   const gap = 10;
   const columnWidth = (PAGE.width - PAGE.margin * 2 - gap) / 2;
   const rightColumnX = PAGE.margin + columnWidth + gap;
-  const sellerNameX = brandIcon ? PAGE.margin + 19 : PAGE.margin;
+  const sellerNameX = brandLogo ? PAGE.margin + 19 : PAGE.margin;
   const sellerNameWidth = 104;
+  const sellerDisplayName = quotation.sellerTradeName || quotation.sellerName;
   document.setFont("helvetica", "bold");
   document.setFontSize(9.5);
   const sellerNameLines = limitLines(
-    wrapText(document, quotation.sellerName.toUpperCase(), sellerNameWidth),
+    wrapText(document, sellerDisplayName.toUpperCase(), sellerNameWidth),
     2
   );
   const topHeight = Math.max(29, 13 + sellerNameLines.length * 4);
@@ -215,15 +217,16 @@ function drawFirstPageHeader(
   setFillColor(document, COLORS.emerald);
   document.rect(0, 0, 4, headerHeight, "F");
 
-  if (brandIcon) {
+  if (brandLogo) {
+    const size = fitPdfLogo(brandLogo, 15, 15);
     document.addImage(
-      brandIcon,
+      brandLogo.dataUrl,
       "PNG",
-      PAGE.margin,
-      5,
-      15,
-      15,
-      "jc-materiais-icon",
+      PAGE.margin + (15 - size.width) / 2,
+      5 + (15 - size.height) / 2,
+      size.width,
+      size.height,
+      "organization-logo",
       "FAST"
     );
   }
@@ -238,11 +241,17 @@ function drawFirstPageHeader(
   document.setFont("helvetica", "normal");
   document.setFontSize(7.2);
   setTextColor(document, COLORS.white);
-  document.text(
-    `CNPJ: ${normalizeValue(quotation.sellerDocument)}`,
-    sellerNameX,
-    11 + sellerNameLines.length * 4
-  );
+  const sellerIdentity = [
+    sellerDisplayName !== quotation.sellerName ? quotation.sellerName : undefined,
+    quotation.sellerDocument
+      ? `CNPJ ou CPF: ${quotation.sellerDocument}`
+      : "Documento nao informado",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  document.text(sellerIdentity, sellerNameX, 11 + sellerNameLines.length * 4, {
+    maxWidth: sellerNameWidth,
+  });
 
   document.setFont("helvetica", "normal");
   document.setFontSize(6.6);
@@ -571,22 +580,23 @@ function drawPageChrome(
   document: jsPDF,
   quotation: Quotation,
   generatedAt: Date,
-  brandIcon?: string
+  brandLogo?: PdfBrandLogo
 ) {
   const totalPages = document.getNumberOfPages();
 
   for (let page = 1; page <= totalPages; page += 1) {
     document.setPage(page);
     if (page > 1) {
-      if (brandIcon) {
+      if (brandLogo) {
+        const size = fitPdfLogo(brandLogo, 7, 7);
         document.addImage(
-          brandIcon,
+          brandLogo.dataUrl,
           "PNG",
-          PAGE.margin,
-          5,
-          7,
-          7,
-          "jc-materiais-icon-small",
+          PAGE.margin + (7 - size.width) / 2,
+          5 + (7 - size.height) / 2,
+          size.width,
+          size.height,
+          "organization-logo-small",
           "FAST"
         );
       }
@@ -594,8 +604,8 @@ function drawPageChrome(
       document.setFontSize(8);
       setTextColor(document, COLORS.ink);
       document.text(
-        quotation.sellerName,
-        brandIcon ? PAGE.margin + 10 : PAGE.margin,
+        quotation.sellerTradeName || quotation.sellerName,
+        brandLogo ? PAGE.margin + 10 : PAGE.margin,
         9.5,
         { maxWidth: 105 }
       );
@@ -604,7 +614,7 @@ function drawPageChrome(
       setTextColor(document, COLORS.muted);
       document.text(
         `CNPJ: ${normalizeValue(quotation.sellerDocument)}`,
-        brandIcon ? PAGE.margin + 10 : PAGE.margin,
+        brandLogo ? PAGE.margin + 10 : PAGE.margin,
         14
       );
       document.setFontSize(7.5);
@@ -627,7 +637,7 @@ function drawPageChrome(
     document.setFontSize(6.8);
     setTextColor(document, COLORS.muted);
     document.text(
-      `Documento gerado por ${BRAND_NAME} em ${formatGeneratedAt(generatedAt)}`,
+      `Documento gerado pela plataforma ${PLATFORM_NAME} em ${formatGeneratedAt(generatedAt)}`,
       PAGE.margin,
       290
     );
@@ -647,10 +657,11 @@ function filenamePart(value: string) {
 }
 
 export async function buildQuotationPdf(quotation: Quotation) {
-  const [{ jsPDF }, { autoTable }, brandIcon] = await Promise.all([
+  COLORS = buildDocumentColors(quotation.sellerPrimaryColor);
+  const [{ jsPDF }, { autoTable }, brandLogo] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
-    loadAssetAsDataUrl(brandIconUrl),
+    loadPdfBrandLogo(quotation.sellerLogoUrl),
   ]);
   const document = new jsPDF({
     orientation: "portrait",
@@ -664,9 +675,9 @@ export async function buildQuotationPdf(quotation: Quotation) {
     title: `Cotacao ${quotation.number}`,
     subject: `Proposta comercial para ${quotation.customerLegalName}`,
     author: quotation.sellerName,
-    creator: BRAND_NAME,
+    creator: PLATFORM_NAME,
   });
-  const headerBottom = drawFirstPageHeader(document, quotation, brandIcon);
+  const headerBottom = drawFirstPageHeader(document, quotation, brandLogo);
 
   let cursorY = ensureSpace(document, headerBottom + 8, 28);
   cursorY = drawSectionTitle(document, cursorY, "Produtos cotados");
@@ -697,7 +708,7 @@ export async function buildQuotationPdf(quotation: Quotation) {
       `${failedImages} imagem(ns) nao puderam ser carregadas. Atualize a pagina e tente exportar novamente.`
     );
   }
-  drawPageChrome(document, quotation, generatedAt, brandIcon);
+  drawPageChrome(document, quotation, generatedAt, brandLogo);
 
   return document;
 }

@@ -2,14 +2,16 @@
 
 ## Contexto da branch
 
-`codex/purchase-orders-v2` e a versao operacional atual do produto. A navegacao
-e o codigo de runtime estao centrados em ordens de compra, clientes e produtos.
+`feature/saas-foundation` preserva a versao operacional e adiciona a primeira
+camada multiusuario. A navegacao e o runtime continuam centrados em ordens de
+compra, clientes e produtos.
 A experiencia financeira generica anterior foi retirada. O financeiro atual e
 novo e limitado a cartoes, parcelas de aquisicoes e recebimentos das notas.
 
 ## Fluxo entregue
 
-1. o usuario autentica e escolhe a organizacao ativa
+1. o usuario cria a conta, confirma o e-mail, autentica e escolhe a organizacao
+   ativa
 2. ao criar uma organizacao, segue para o cadastro do primeiro produto
 3. cadastra a unidade compradora em `Clientes`
 4. cadastra produtos ou os cria rapidamente dentro de uma cotacao ou ordem
@@ -26,16 +28,24 @@ novo e limitado a cartoes, parcelas de aquisicoes e recebimentos das notas.
 13. registra notas fiscais sobre os itens separados
 14. acompanha pagamentos, pendencias, atrasos e margem no painel
 15. pesquisa, compra e recebe itens de todas as ordens na fila operacional
+16. o proprietario gerencia a equipe e compartilha convites com papeis definidos
 
 ## Telas e comportamentos
 
+- `/verify-email`: confirmacao e reenvio do codigo de novos cadastros
+- `/invite/:token`: leitura publica e aceite autenticado do convite pelo mesmo
+  e-mail usado pelo proprietario
+- `/settings/team`: membros ativos, papeis, convites pendentes e revogacao
+- `/settings/organization`: perfil comercial, cor, logo versionada e preview
+  do cabecalho dos documentos
 - `/dashboard`: indicadores operacionais e financeiros reunidos no topo, com
   explicacao dos resultados e ordens que exigem atencao; os indicadores
   operacionais abrem em uma nova aba a listagem exata das ordens que compoem
   cada numero. O periodo usa a emissao da ordem, inicia nos ultimos 30 dias e
   oferece atalhos de 7, 15 e 30 dias ou intervalo personalizado
 - `/quotations`: listagem linear, busca e filtro por situacao das propostas
-- `/quotations/new`: criacao com cliente, dados da empresa, itens do catalogo,
+- `/quotations/new`: criacao com cliente, identidade vinda da organizacao,
+  itens do catalogo,
   cadastro rapido de produto, valores, condicoes e imagens opcionais
 - `/quotations/:quotationId`: revisao dos snapshots, exclusao e exportacao do
   PDF com tabela paginada e galeria de imagens
@@ -62,9 +72,10 @@ novo e limitado a cartoes, parcelas de aquisicoes e recebimentos das notas.
   recebimentos, gestao segura de cartoes e quitacao das parcelas abertas de uma
   fatura pelo mes de vencimento
 - `/me/peso`: area pessoal fora da organizacao ativa, acessivel somente com a
-  feature individual `BODY_WEIGHT`; registra peso e calorias por dia, permite
-  meta e data-alvo opcionais, mostra media movel de sete dias, comparativos de
-  7 e 30 dias e balanco calorico com cobertura explicita
+  feature individual `BODY_WEIGHT`; oferece check-in conjunto de peso, consumo
+  e gasto energetico total do dia, registros retroativos, meta e data-alvo
+  opcionais, resumo semanal, media movel de sete dias, comparativos de 7 e 30
+  dias, balanco calorico e projecao da meta baseada na tendencia observada
 - seletor de produto em cada item da ordem, com preenchimento automatico dos
   dados e sugestao do ultimo preco vendido
 - busca de produtos por codigo, nome, marca, especificacao e embalagem, sem
@@ -99,12 +110,23 @@ novo e limitado a cartoes, parcelas de aquisicoes e recebimentos das notas.
 - bloqueio de edicao dos itens depois do inicio das aquisicoes
 - sidebar reduzida aos modulos atuais da V2
 - organizacao ativa explicita em todas as telas privadas
+- marca MoneyStack no shell e identidade do tenant no seletor e nos PDFs
+- cotacao emitida respeita o snapshot da logo e da identidade comercial
+- sidebar e rotas filtradas pelas permissoes efetivas da organizacao ativa
 - dark theme unico e layout responsivo
 
 ## Integracao com a API
 
 Todas as consultas sao delimitadas pela organizacao ativa:
 
+- `GET /entities/{entityId}/members`
+- `POST /entities/{entityId}/invitations`
+- `PATCH|DELETE /entities/{entityId}/members/{membershipId}`
+- `DELETE /entities/{entityId}/invitations/{invitationId}`
+- `GET /invitations/{token}`
+- `POST /invitations/{token}/accept`
+- `GET|PATCH /organizations/{entityId}/profile`
+- `POST|DELETE /organizations/{entityId}/logo`
 - `GET|POST /entities/{entityId}/customers`
 - `PATCH /entities/{entityId}/customers/{customerId}`
 - `GET|POST /entities/{entityId}/products`
@@ -143,8 +165,13 @@ As rotas pessoais nao usam organizacao e derivam o proprietario do token:
 - `GET /me/daily-calories`
 - `PUT|DELETE /me/daily-calories/{loggedOn}`
 
-O gasto diario exibido pode vir da estimativa com atividade ou de um valor
-manual. Dias sem calorias ficam como ausentes e nao entram no deficit semanal.
+O gasto total informado no registro diario prevalece no balanco daquele dia.
+Quando ele fica vazio, o sistema usa como fallback o valor manual ou estimado
+do perfil. Dias sem calorias ficam como ausentes e nao entram no deficit
+semanal. O resumo semanal usa apenas dias efetivamente registrados. A projecao da meta
+usa regressao linear sobre as medias moveis de ate seis semanas e so aparece
+com pelo menos quatro pesagens em 14 dias, uma medicao nos ultimos sete dias e
+tendencia na direcao do objetivo; o resultado e informativo, nao clinico.
 
 O frontend preserva os campos opcionais, os snapshots de endereco, os snapshots
 do produto e o total oficial retornado pela API. O valor calculado dos itens e
@@ -163,8 +190,10 @@ exibido separadamente quando houver divergencia.
 
 - o bundle principal ainda e grande e pede code splitting futuro
 - ainda nao ha uma suite automatizada de componentes no frontend
+- algumas acoes internas das telas operacionais ainda dependem do bloqueio da
+  API; a navegacao e as rotas de criacao/edicao ja respeitam as permissoes
 
 ## Proxima fatia recomendada
 
-Validar o fluxo com dados reais e priorizar os refinamentos encontrados pela
-equipe antes de iniciar anexos e importacao automatica de documentos.
+Criar planos versionados, entitlements e cotas, mantendo a API como autoridade
+dos limites antes de integrar a cobranca.

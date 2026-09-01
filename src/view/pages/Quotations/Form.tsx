@@ -1,7 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconArrowLeft,
+  IconCopy,
   IconDeviceFloppy,
   IconFileInvoice,
   IconInfoCircle,
@@ -17,6 +18,10 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { QueryKeys } from "@/app/config/QueryKeys";
+import type {
+  Entity,
+  OrganizationProfileResult,
+} from "@/app/entities/Entity";
 import type { Product } from "@/app/entities/Product";
 import type {
   Quotation,
@@ -27,6 +32,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { useCustomers } from "@/app/hooks/useCustomers";
 import { useProducts } from "@/app/hooks/useProducts";
 import { useQuotation } from "@/app/hooks/useQuotation";
+import { organizationProfileService } from "@/app/services/organizationProfileService";
 import { quotationService } from "@/app/services/quotationService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
 import { Button } from "@/components/ui/button";
@@ -186,18 +192,36 @@ const newItem = (lineNumber: number): QuotationFormData["items"][number] => ({
   notes: "",
 });
 
-function buildInitialValues(sellerName?: string): QuotationFormData {
+function sellerValuesFromEntity(entity?: Entity | null) {
+  const profile = entity?.profile;
+
+  return {
+    sellerName: profile?.legalName || entity?.name || "",
+    sellerDocument: profile?.document ?? "",
+    sellerEmail: profile?.email ?? "",
+    sellerPhone: profile?.phone ?? "",
+    sellerAddress: profile?.address ?? "",
+  };
+}
+
+function sellerValuesFromProfile(result: OrganizationProfileResult) {
+  return {
+    sellerName: result.profile.legalName || result.organization.name,
+    sellerDocument: result.profile.document ?? "",
+    sellerEmail: result.profile.email ?? "",
+    sellerPhone: result.profile.phone ?? "",
+    sellerAddress: result.profile.address ?? "",
+  };
+}
+
+function buildInitialValues(entity?: Entity | null): QuotationFormData {
   return {
     customerId: "",
     number: buildSuggestedNumber(),
     status: "DRAFT",
     issuedAt: getLocalDateInputValue(),
     validUntil: getLocalDateInputValue(15),
-    sellerName: sellerName ?? "",
-    sellerDocument: "",
-    sellerEmail: "",
-    sellerPhone: "",
-    sellerAddress: "",
+    ...sellerValuesFromEntity(entity),
     customerAddress: "",
     paymentTerms: "",
     deliveryTerms: "",
@@ -269,6 +293,11 @@ export default function QuotationForm() {
   const isEditing = Boolean(quotationId);
   const queryClient = useQueryClient();
   const { activeEntity, selectedEntityId } = useAuth();
+  const organizationProfileQuery = useQuery({
+    queryKey: [QueryKeys.ORGANIZATION_PROFILE, selectedEntityId],
+    queryFn: () => organizationProfileService.get(selectedEntityId!),
+    enabled: Boolean(selectedEntityId),
+  });
   const [quickProductItemIndex, setQuickProductItemIndex] = useState<
     number | null
   >(null);
@@ -323,7 +352,7 @@ export default function QuotationForm() {
     formState: { errors },
   } = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
-    defaultValues: buildInitialValues(activeEntity?.name),
+    defaultValues: buildInitialValues(activeEntity),
   });
   const { fields, append, remove } = useFieldArray({
     control,
@@ -365,10 +394,15 @@ export default function QuotationForm() {
   }, [quotation, reset]);
 
   useEffect(() => {
-    if (!isEditing && activeEntity && !getValues("sellerName")) {
-      setValue("sellerName", activeEntity.name);
-    }
-  }, [activeEntity, getValues, isEditing, setValue]);
+    if (isEditing || (!organizationProfileQuery.data && !activeEntity)) return;
+
+    const seller = organizationProfileQuery.data
+      ? sellerValuesFromProfile(organizationProfileQuery.data)
+      : sellerValuesFromEntity(activeEntity);
+    (Object.keys(seller) as Array<keyof typeof seller>).forEach((field) => {
+      setValue(field, seller[field], { shouldDirty: false });
+    });
+  }, [activeEntity, isEditing, organizationProfileQuery.data, setValue]);
 
   const watchedItems = watch("items");
   const freight = Number(watch("freight")) || 0;
@@ -522,6 +556,25 @@ export default function QuotationForm() {
       });
     }
     remove(index);
+  };
+
+  const duplicateItem = (index: number) => {
+    const items = getValues("items");
+    const source = items[index];
+    if (!source) return;
+
+    const nextLineNumber =
+      Math.max(0, ...items.map((item) => item.lineNumber || 0)) + 1;
+    append({
+      productId: source.productId,
+      lineNumber: nextLineNumber,
+      quantity: source.quantity,
+      unitPrice: source.unitPrice,
+      notes: source.notes,
+    });
+    toast.success(
+      "Produto duplicado. Troque o produto ou a marca e ajuste o valor desejado."
+    );
   };
 
   const onSubmit = handleSubmit(async (formData) => {
@@ -800,27 +853,42 @@ export default function QuotationForm() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Dados da empresa</CardTitle>
+            <CardTitle>Empresa emissora</CardTitle>
             <CardDescription>
-              Estas informacoes aparecerao no cabecalho e no rodape do PDF.
+              A identidade vem do perfil da organizacao e nao precisa ser
+              redigitada nesta cotacao.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Razao social ou nome" error={errors.sellerName?.message}>
-              <Input {...register("sellerName")} />
-            </Field>
-            <Field label="CNPJ ou CPF">
-              <Input placeholder="Opcional" {...register("sellerDocument")} />
-            </Field>
-            <Field label="E-mail" error={errors.sellerEmail?.message}>
-              <Input type="email" placeholder="Opcional" {...register("sellerEmail")} />
-            </Field>
-            <Field label="Telefone">
-              <Input placeholder="Opcional" {...register("sellerPhone")} />
-            </Field>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Endereco da empresa</Label>
-              <Textarea rows={3} placeholder="Opcional" {...register("sellerAddress")} />
+          <CardContent className="space-y-4">
+            <input type="hidden" {...register("sellerName")} />
+            <input type="hidden" {...register("sellerDocument")} />
+            <input type="hidden" {...register("sellerEmail")} />
+            <input type="hidden" {...register("sellerPhone")} />
+            <input type="hidden" {...register("sellerAddress")} />
+
+            <div className="grid gap-3 rounded-2xl border bg-muted/10 p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <CompanyValue label="Razao social" value={watch("sellerName")} />
+              <CompanyValue label="CNPJ ou CPF" value={watch("sellerDocument")} />
+              <CompanyValue label="E-mail" value={watch("sellerEmail")} />
+              <CompanyValue label="Telefone" value={watch("sellerPhone")} />
+              <CompanyValue
+                label="Endereco"
+                value={watch("sellerAddress")}
+                className="sm:col-span-2"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>
+                {quotation?.brandingLockedAt
+                  ? "Identidade congelada na emissao desta cotacao."
+                  : "Enquanto estiver em rascunho, a cotacao acompanha o perfil atual."}
+              </span>
+              {!quotation?.brandingLockedAt && (
+                <Button asChild type="button" size="sm" variant="outline">
+                  <Link to="/settings/organization">Editar perfil da empresa</Link>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -873,16 +941,28 @@ export default function QuotationForm() {
                         )}
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      disabled={fields.length === 1}
-                      onClick={() => removeItem(index)}
-                      aria-label={`Remover produto ${index + 1}`}
-                    >
-                      <IconTrash className="text-destructive" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => duplicateItem(index)}
+                        aria-label={`Duplicar produto ${index + 1}`}
+                      >
+                        <IconCopy />
+                        Duplicar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        disabled={fields.length === 1}
+                        onClick={() => removeItem(index)}
+                        aria-label={`Remover produto ${index + 1}`}
+                      >
+                        <IconTrash className="text-destructive" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -1200,6 +1280,27 @@ export default function QuotationForm() {
         onCreated={handleQuickProductCreated}
       />
     </>
+  );
+}
+
+function CompanyValue({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value?: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 whitespace-pre-line text-sm font-medium">
+        {value?.trim() || "Nao informado"}
+      </p>
+    </div>
   );
 }
 

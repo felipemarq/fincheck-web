@@ -14,6 +14,7 @@ import {
   IconPackageImport,
   IconReceipt,
   IconShoppingCart,
+  IconTags,
   IconTruck,
 } from "@tabler/icons-react";
 import { useState } from "react";
@@ -40,10 +41,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AcquisitionModal } from "@/view/modals/AcquisitionModal";
+import { AcquisitionLabelsModal } from "@/view/modals/AcquisitionLabelsModal";
 import { AcquisitionReceiptModal } from "@/view/modals/AcquisitionReceiptModal";
 import { DeliveryModal } from "@/view/modals/DeliveryModal";
 import { InvoiceModal } from "@/view/modals/InvoiceModal";
 import { ReceivablePaymentModal } from "@/view/modals/ReceivablePaymentModal";
+import { organizationBrandFromEntity } from "@/view/utils/pdfOrganizationBrand";
 import { exportPurchaseOrderPdf } from "./exportPurchaseOrderPdf";
 import {
   formatCurrency,
@@ -182,6 +185,7 @@ export default function PurchaseOrderDetails() {
     useState<string | null>(null);
   const [receiptAcquisition, setReceiptAcquisition] =
     useState<Acquisition | null>(null);
+  const [isLabelsModalOpen, setIsLabelsModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] =
     useState<Delivery | null>(null);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
@@ -312,7 +316,10 @@ export default function PurchaseOrderDetails() {
     setIsExportingPdf(true);
 
     try {
-      await exportPurchaseOrderPdf(order, activeEntity?.name);
+      await exportPurchaseOrderPdf(
+        order,
+        organizationBrandFromEntity(activeEntity)
+      );
       toast.success("PDF da ordem exportado.");
     } catch (error) {
       console.error("Failed to export purchase order PDF", error);
@@ -378,6 +385,24 @@ export default function PurchaseOrderDetails() {
       matchesItemFilter(item, "EXCESS")
     ).length,
   } satisfies Record<ItemFilter, number>;
+  const labelCandidateCount =
+    acquisitions?.reduce(
+      (total, acquisition) =>
+        acquisition.status === "CANCELLED"
+          ? total
+          : total +
+            acquisition.items.reduce(
+              (itemTotal, item) =>
+                itemTotal +
+                item.allocations.filter(
+                  (allocation) =>
+                    allocation.purchaseOrderId === order.id &&
+                    allocation.allocatedQuantity > 0
+                ).length,
+              0
+            ),
+      0
+    ) ?? 0;
 
   return (
     <>
@@ -743,12 +768,23 @@ export default function PurchaseOrderDetails() {
                   Compras realizadas para atender exclusivamente esta ordem.
                 </CardDescription>
               </div>
-              {canOperate && (
-                <Button onClick={() => openNewAcquisition()}>
-                  <IconShoppingCart />
-                  Registrar compra
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {labelCandidateCount > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsLabelsModalOpen(true)}
+                  >
+                    <IconTags />
+                    Gerar etiquetas
+                  </Button>
+                )}
+                {canOperate && (
+                  <Button onClick={() => openNewAcquisition()}>
+                    <IconShoppingCart />
+                    Registrar compra
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1393,6 +1429,15 @@ export default function PurchaseOrderDetails() {
         order={order}
         acquisition={receiptAcquisition}
       />
+      {isLabelsModalOpen && acquisitions && (
+        <AcquisitionLabelsModal
+          isOpen
+          onClose={() => setIsLabelsModalOpen(false)}
+          order={order}
+          acquisitions={acquisitions}
+          brand={organizationBrandFromEntity(activeEntity)}
+        />
+      )}
       <DeliveryModal
         isOpen={isDeliveryModalOpen}
         onClose={closeDelivery}
