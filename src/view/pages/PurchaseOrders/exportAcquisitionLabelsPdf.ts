@@ -14,22 +14,41 @@ import {
 } from "@/view/utils/pdfOrganizationBrand";
 
 export const LABELS_PER_PAGE = 6;
+export const MAX_ITEMS_PER_LABEL = 10;
+export const MAX_LABEL_COPIES = 20;
+export const MAX_LABELS_PER_EXPORT = 120;
 
-export type AcquisitionLabel = {
+export type AcquisitionLabelSourceItem = {
   id: string;
-  acquisitionId: string;
-  acquisitionReference: string;
   productDescription: string;
   brand?: string;
   packaging?: string;
+  availableQuantity: number;
+  unit: string;
+  lineNumber: number;
+};
+
+export type AcquisitionLabelVolumeItem = {
+  sourceItemId: string;
+  productDescription: string;
   quantity: number;
   unit: string;
   lineNumber: number;
+};
+
+export type AcquisitionLabelVolume = {
+  id: string;
+  title: string;
+  notes: string;
+  copies: number;
+  items: AcquisitionLabelVolumeItem[];
+};
+
+export type AcquisitionLabelDocument = {
   orderNumber: string;
-  customerName: string;
-  supplierName?: string;
-  supplierOrderNumber?: string;
-  purchasedAt: string;
+  recipientName: string;
+  recipientAddress?: string;
+  volumes: AcquisitionLabelVolume[];
 };
 
 type LabelDocumentColors = {
@@ -90,16 +109,14 @@ function setTextColor(document: jsPDF, color: PdfRgb) {
   document.setTextColor(color[0], color[1], color[2]);
 }
 
+function roundQuantity(value: number) {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
 function formatQuantity(value: number) {
   return value.toLocaleString("pt-BR", {
     maximumFractionDigits: 3,
   });
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "UTC",
-  }).format(new Date(value));
 }
 
 function filenamePart(value: string) {
@@ -208,34 +225,103 @@ function drawBrandMark(
   });
 }
 
-function drawField(
+function drawSingleItem(
   document: jsPDF,
   colors: LabelDocumentColors,
-  label: string,
-  value: string | undefined,
-  x: number,
-  y: number,
-  width: number
+  item: AcquisitionLabelVolumeItem,
+  innerX: number,
+  innerWidth: number,
+  top: number,
+  bottom: number
 ) {
   document.setFont("helvetica", "bold");
-  document.setFontSize(5.8);
-  setTextColor(document, colors.muted);
-  document.text(label.toUpperCase(), x, y);
+  document.setFontSize(6.2);
+  setTextColor(document, colors.primary);
+  document.text(`ITEM ${item.lineNumber}`, innerX, top + 3.5);
 
-  document.setFont("helvetica", "bold");
+  document.setFontSize(9.5);
   setTextColor(document, colors.ink);
-  const normalizedValue = value?.trim() || "Não informado";
-  fitSingleLineFontSize(document, normalizedValue, width, 7.3, 5.8);
   document.text(
-    truncateToWidth(document, normalizedValue, width),
-    x,
-    y + 4
+    limitedLines(document, item.productDescription, innerWidth, 3),
+    innerX,
+    top + 8.5,
+    { lineHeightFactor: 1.12 }
   );
+
+  const quantityTop = bottom - 14;
+  setFillColor(document, colors.primarySoft);
+  setDrawColor(document, mixPdfColor(colors.primary, [255, 255, 255], 0.58));
+  document.roundedRect(innerX, quantityTop, innerWidth, 12, 2.2, 2.2, "FD");
+  document.setFont("helvetica", "bold");
+  document.setFontSize(5.6);
+  setTextColor(document, colors.primaryDark);
+  document.text("QUANTIDADE NESTE VOLUME", innerX + 3, quantityTop + 4.1);
+
+  const quantity = `${formatQuantity(item.quantity)} ${item.unit}`;
+  fitSingleLineFontSize(document, quantity, innerWidth - 6, 14.5, 9);
+  setTextColor(document, colors.ink);
+  document.text(quantity, innerX + 3, quantityTop + 9.6);
+}
+
+function drawMultipleItems(
+  document: jsPDF,
+  colors: LabelDocumentColors,
+  items: AcquisitionLabelVolumeItem[],
+  innerX: number,
+  innerWidth: number,
+  top: number,
+  bottom: number
+) {
+  document.setFont("helvetica", "bold");
+  document.setFontSize(6.2);
+  setTextColor(document, colors.primary);
+  document.text(`CONTEÚDO DESTE VOLUME · ${items.length} ITENS`, innerX, top + 3.5);
+
+  const listTop = top + 5.3;
+  const rowHeight = Math.max(3.2, Math.min(6.8, (bottom - listTop) / items.length));
+  const fontSize = items.length <= 4 ? 7 : items.length <= 7 ? 6.2 : 5.5;
+  const quantityWidth = 22;
+
+  items.forEach((item, index) => {
+    const rowTop = listTop + index * rowHeight;
+    const baseline = rowTop + rowHeight / 2 + fontSize * 0.13;
+
+    if (index % 2 === 0) {
+      setFillColor(document, colors.soft);
+      document.roundedRect(innerX, rowTop, innerWidth, rowHeight, 1, 1, "F");
+    }
+
+    document.setFont("helvetica", "bold");
+    document.setFontSize(fontSize);
+    setTextColor(document, colors.muted);
+    document.text(String(item.lineNumber), innerX + 2, baseline);
+
+    document.setFont("helvetica", "normal");
+    setTextColor(document, colors.ink);
+    document.text(
+      truncateToWidth(
+        document,
+        item.productDescription,
+        innerWidth - quantityWidth - 10
+      ),
+      innerX + 7,
+      baseline
+    );
+
+    const quantity = `${formatQuantity(item.quantity)} ${item.unit}`;
+    document.setFont("helvetica", "bold");
+    fitSingleLineFontSize(document, quantity, quantityWidth - 2, fontSize, 4.8);
+    document.text(quantity, innerX + innerWidth - 2, baseline, {
+      align: "right",
+    });
+  });
 }
 
 function drawLabel(
   document: jsPDF,
-  label: AcquisitionLabel,
+  labelDocument: AcquisitionLabelDocument,
+  volume: AcquisitionLabelVolume,
+  volumeIndex: number,
   brand: PdfOrganizationBrand,
   logo: PdfBrandLogo | undefined,
   colors: LabelDocumentColors,
@@ -244,6 +330,7 @@ function drawLabel(
 ) {
   const innerX = x + 4;
   const innerWidth = LABEL.width - 8;
+  const recipientAddress = labelDocument.recipientAddress?.trim();
 
   setDrawColor(document, colors.line);
   document.setLineWidth(0.25);
@@ -268,13 +355,13 @@ function drawLabel(
   );
   document.setFont("helvetica", "normal");
   document.setFontSize(5.8);
-  document.text("IDENTIFICAÇÃO DE VOLUME", innerX + 14, y + 12.3);
+  document.text("IDENTIFICAÇÃO DE ENTREGA", innerX + 14, y + 12.3);
 
   document.setFont("helvetica", "bold");
   document.setFontSize(6.2);
   setTextColor(document, colors.primarySoft);
   document.text("ORDEM", x + LABEL.width - 4, y + 6.9, { align: "right" });
-  const orderNumber = label.orderNumber.trim() || "Não informada";
+  const orderNumber = labelDocument.orderNumber.trim() || "Não informada";
   fitSingleLineFontSize(document, orderNumber, 31, 9.5, 6.2);
   setTextColor(document, colors.white);
   document.text(
@@ -287,160 +374,228 @@ function drawLabel(
   document.setFont("helvetica", "bold");
   document.setFontSize(6.2);
   setTextColor(document, colors.primary);
-  document.text(`ITEM ${label.lineNumber}`, innerX, y + 23);
+  document.text(
+    `VOLUME ${volumeIndex + 1} DE ${labelDocument.volumes.length}`,
+    innerX,
+    y + 22.2
+  );
 
-  const identification = [
-    label.brand && label.brand.toLowerCase() !== "outros"
-      ? label.brand
-      : undefined,
-    label.packaging,
-  ]
-    .filter(Boolean)
-    .join(" | ");
-
-  if (identification) {
-    document.setFont("helvetica", "normal");
-    document.setFontSize(6.2);
+  if (volume.title.trim()) {
+    document.setFontSize(6.5);
     setTextColor(document, colors.muted);
     document.text(
-      truncateToWidth(document, identification, 48),
+      truncateToWidth(document, volume.title, 46),
       x + LABEL.width - 4,
-      y + 23,
+      y + 22.2,
       { align: "right" }
     );
   }
 
   document.setFont("helvetica", "bold");
-  document.setFontSize(10.5);
+  document.setFontSize(5.5);
+  setTextColor(document, colors.muted);
+  document.text("DESTINATÁRIO", innerX, y + 27);
+
+  const recipientName = labelDocument.recipientName.trim() || "Não informado";
+  document.setFont("helvetica", "bold");
+  fitSingleLineFontSize(document, recipientName, innerWidth, 8.5, 6.2);
   setTextColor(document, colors.ink);
   document.text(
-    limitedLines(document, label.productDescription, innerWidth, 3),
+    truncateToWidth(document, recipientName, innerWidth),
     innerX,
-    y + 28.8,
-    { lineHeightFactor: 1.15 }
+    y + 31.3
   );
 
-  setFillColor(document, colors.primarySoft);
-  setDrawColor(document, mixPdfColor(colors.primary, [255, 255, 255], 0.58));
-  document.roundedRect(innerX, y + 44, innerWidth, 16, 2.5, 2.5, "FD");
-
-  document.setFont("helvetica", "bold");
-  document.setFontSize(5.8);
-  setTextColor(document, colors.primaryDark);
-  document.text("QUANTIDADE DESTE VOLUME", innerX + 4, y + 49.3);
-
-  document.setFont("helvetica", "bold");
-  document.setFontSize(17);
-  setTextColor(document, colors.ink);
-  document.text(
-    `${formatQuantity(label.quantity)} ${label.unit}`,
-    innerX + 4,
-    y + 57.1
-  );
-
-  const leftWidth = 50;
-  const rightX = innerX + 55;
-  const rightWidth = innerWidth - 55;
-  drawField(
-    document,
-    colors,
-    "Cliente",
-    label.customerName,
-    innerX,
-    y + 66,
-    leftWidth
-  );
-  drawField(
-    document,
-    colors,
-    "Linha da OC",
-    String(label.lineNumber),
-    rightX,
-    y + 66,
-    rightWidth
-  );
-  drawField(
-    document,
-    colors,
-    "Fornecedor",
-    label.supplierName,
-    innerX,
-    y + 76,
-    leftWidth
-  );
-  drawField(
-    document,
-    colors,
-    "Pedido fornecedor",
-    label.supplierOrderNumber,
-    rightX,
-    y + 76,
-    rightWidth
-  );
+  let separatorY = y + 34.6;
+  if (recipientAddress) {
+    document.setFont("helvetica", "normal");
+    document.setFontSize(5.7);
+    setTextColor(document, colors.muted);
+    document.text(
+      limitedLines(document, recipientAddress, innerWidth, 2),
+      innerX,
+      y + 35.6,
+      { lineHeightFactor: 1.12 }
+    );
+    separatorY = y + 41;
+  }
 
   setDrawColor(document, colors.line);
-  document.line(innerX, y + 83.3, x + LABEL.width - 4, y + 83.3);
+  document.line(innerX, separatorY, x + LABEL.width - 4, separatorY);
 
-  document.setFont("helvetica", "normal");
-  document.setFontSize(5.6);
-  setTextColor(document, colors.muted);
-  document.text(`Compra: ${formatDate(label.purchasedAt)}`, innerX, y + 87.3);
-  document.text(
-    `Ref. ${label.acquisitionReference}`,
-    x + LABEL.width - 4,
-    y + 87.3,
-    { align: "right" }
-  );
+  const notes = volume.notes.trim();
+  const contentTop = separatorY + 1.5;
+  const contentBottom = y + LABEL.height - (notes ? 11 : 4.5);
+
+  if (volume.items.length === 1) {
+    drawSingleItem(
+      document,
+      colors,
+      volume.items[0],
+      innerX,
+      innerWidth,
+      contentTop,
+      contentBottom
+    );
+  } else {
+    drawMultipleItems(
+      document,
+      colors,
+      volume.items,
+      innerX,
+      innerWidth,
+      contentTop,
+      contentBottom
+    );
+  }
+
+  if (notes) {
+    const noteY = y + LABEL.height - 8;
+    setDrawColor(document, colors.line);
+    document.line(innerX, noteY - 2.3, x + LABEL.width - 4, noteY - 2.3);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(5.5);
+    setTextColor(document, colors.muted);
+    document.text("OBS.", innerX, noteY + 1.2);
+    document.setFont("helvetica", "normal");
+    setTextColor(document, colors.ink);
+    document.text(
+      truncateToWidth(document, notes, innerWidth - 10),
+      innerX + 9,
+      noteY + 1.2
+    );
+  }
 }
 
-export function buildAcquisitionLabels(
+export function buildAcquisitionLabelSourceItems(
   order: PurchaseOrder,
   acquisitions: Acquisition[]
 ) {
-  return acquisitions
+  const sourceItems = new Map<string, AcquisitionLabelSourceItem>();
+  const orderItems = new Map(
+    order.items
+      .filter((item) => item.id)
+      .map((item) => [item.id as string, item])
+  );
+
+  acquisitions
     .filter((acquisition) => acquisition.status !== "CANCELLED")
-    .flatMap((acquisition) =>
-      acquisition.items.flatMap((item, itemIndex) =>
+    .forEach((acquisition) => {
+      acquisition.items.forEach((item) => {
         item.allocations
           .filter(
             (allocation) =>
               allocation.purchaseOrderId === order.id &&
               allocation.allocatedQuantity > 0
           )
-          .map((allocation, allocationIndex): AcquisitionLabel => ({
-            id: [
-              acquisition.id,
-              item.id ?? item.productId ?? itemIndex,
-              allocation.id ?? allocation.purchaseOrderItemId ?? allocationIndex,
-            ].join(":"),
-            acquisitionId: acquisition.id,
-            acquisitionReference: acquisition.id.slice(0, 8).toUpperCase(),
-            productDescription: item.description || allocation.description,
-            brand: item.brand,
-            packaging: item.packaging,
-            quantity: allocation.allocatedQuantity,
-            unit: allocation.originalUnit || item.normalizedUnit,
-            lineNumber: allocation.lineNumber,
-            orderNumber: allocation.orderNumber || order.orderNumber,
-            customerName:
-              order.customer.tradeName ||
-              allocation.customerName ||
-              order.customer.legalName,
-            supplierName: acquisition.sellerName || acquisition.channel,
-            supplierOrderNumber: acquisition.sellerOrderNumber,
-            purchasedAt: acquisition.purchasedAt,
-          }))
-      )
+          .forEach((allocation) => {
+            const sourceId = allocation.purchaseOrderItemId;
+            const orderItem = orderItems.get(sourceId);
+            const current = sourceItems.get(sourceId);
+
+            sourceItems.set(sourceId, {
+              id: sourceId,
+              productDescription:
+                orderItem?.description || item.description || allocation.description,
+              brand: orderItem?.brand || item.brand,
+              packaging: item.packaging,
+              availableQuantity: roundQuantity(
+                (current?.availableQuantity ?? 0) + allocation.allocatedQuantity
+              ),
+              unit:
+                orderItem?.originalUnit ||
+                allocation.originalUnit ||
+                item.normalizedUnit,
+              lineNumber: orderItem?.lineNumber || allocation.lineNumber,
+            });
+          });
+      });
+    });
+
+  return [...sourceItems.values()].sort(
+    (first, second) =>
+      first.lineNumber - second.lineNumber ||
+      first.productDescription.localeCompare(second.productDescription, "pt-BR")
+  );
+}
+
+export function toAcquisitionLabelVolumeItem(
+  sourceItem: AcquisitionLabelSourceItem,
+  quantity = sourceItem.availableQuantity
+): AcquisitionLabelVolumeItem {
+  return {
+    sourceItemId: sourceItem.id,
+    productDescription: sourceItem.productDescription,
+    quantity: roundQuantity(quantity),
+    unit: sourceItem.unit,
+    lineNumber: sourceItem.lineNumber,
+  };
+}
+
+export function buildDefaultAcquisitionLabelVolumes(
+  sourceItems: AcquisitionLabelSourceItem[]
+): AcquisitionLabelVolume[] {
+  return sourceItems.map((sourceItem, index) => ({
+    id: `volume-${index + 1}-${sourceItem.id}`,
+    title: "",
+    notes: "",
+    copies: 1,
+    items: [toAcquisitionLabelVolumeItem(sourceItem)],
+  }));
+}
+
+function validateLabelDocument(labelDocument: AcquisitionLabelDocument) {
+  if (!labelDocument.recipientName.trim()) {
+    throw new Error("Informe o destinatário das etiquetas.");
+  }
+
+  if (!labelDocument.volumes.length) {
+    throw new Error("Adicione pelo menos um volume.");
+  }
+
+  const labelCount = labelDocument.volumes.reduce(
+    (total, volume) => total + Math.trunc(volume.copies),
+    0
+  );
+
+  if (labelCount > MAX_LABELS_PER_EXPORT) {
+    throw new Error(
+      `O PDF pode conter no máximo ${MAX_LABELS_PER_EXPORT} etiquetas.`
     );
+  }
+
+  labelDocument.volumes.forEach((volume, index) => {
+    if (!volume.items.length) {
+      throw new Error(`O volume ${index + 1} não possui itens.`);
+    }
+
+    if (volume.items.length > MAX_ITEMS_PER_LABEL) {
+      throw new Error(
+        `O volume ${index + 1} excede o limite de ${MAX_ITEMS_PER_LABEL} itens.`
+      );
+    }
+
+    if (
+      !Number.isInteger(volume.copies) ||
+      volume.copies < 1 ||
+      volume.copies > MAX_LABEL_COPIES
+    ) {
+      throw new Error(
+        `As cópias do volume ${index + 1} devem ficar entre 1 e ${MAX_LABEL_COPIES}.`
+      );
+    }
+
+    if (volume.items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0)) {
+      throw new Error(`O volume ${index + 1} possui uma quantidade inválida.`);
+    }
+  });
 }
 
 export async function buildAcquisitionLabelsPdf(
-  labels: AcquisitionLabel[],
+  labelDocument: AcquisitionLabelDocument,
   brand: PdfOrganizationBrand
 ) {
-  if (!labels.length) {
-    throw new Error("Selecione pelo menos uma etiqueta.");
-  }
+  validateLabelDocument(labelDocument);
 
   const [{ jsPDF }, logo] = await Promise.all([
     import("jspdf"),
@@ -453,16 +608,19 @@ export async function buildAcquisitionLabelsPdf(
     compress: true,
   });
   const colors = buildColors(brand.primaryColor);
-  const totalPages = Math.ceil(labels.length / LABELS_PER_PAGE);
+  const printableVolumes = labelDocument.volumes.flatMap((volume, volumeIndex) =>
+    Array.from({ length: volume.copies }, () => ({ volume, volumeIndex }))
+  );
+  const totalPages = Math.ceil(printableVolumes.length / LABELS_PER_PAGE);
 
   document.setProperties({
     title: "Etiquetas de identificação de volumes",
-    subject: "Etiquetas de aquisições vinculadas a ordens de compra",
+    subject: "Volumes destinados ao cliente da ordem de compra",
     author: brand.legalName || brand.name,
     creator: PLATFORM_NAME,
   });
 
-  labels.forEach((label, index) => {
+  printableVolumes.forEach(({ volume, volumeIndex }, index) => {
     if (index > 0 && index % LABELS_PER_PAGE === 0) {
       document.addPage();
     }
@@ -473,7 +631,17 @@ export async function buildAcquisitionLabelsPdf(
     const x = PAGE.marginX + column * (LABEL.width + PAGE.columnGap);
     const y = PAGE.marginY + row * (LABEL.height + PAGE.rowGap);
 
-    drawLabel(document, label, brand, logo, colors, x, y);
+    drawLabel(
+      document,
+      labelDocument,
+      volume,
+      volumeIndex,
+      brand,
+      logo,
+      colors,
+      x,
+      y
+    );
   });
 
   for (let page = 1; page <= totalPages; page += 1) {
@@ -490,16 +658,12 @@ export async function buildAcquisitionLabelsPdf(
 }
 
 export async function exportAcquisitionLabelsPdf(
-  labels: AcquisitionLabel[],
+  labelDocument: AcquisitionLabelDocument,
   brand: PdfOrganizationBrand
 ) {
-  const document = await buildAcquisitionLabelsPdf(labels, brand);
-  const orderNumbers = [...new Set(labels.map((label) => label.orderNumber))];
-  const reference =
-    orderNumbers.length === 1
-      ? `oc-${filenamePart(orderNumbers[0]) || "sem-numero"}`
-      : `${orderNumbers.length}-ordens`;
-  const filename = `etiquetas-${reference}.pdf`;
+  const document = await buildAcquisitionLabelsPdf(labelDocument, brand);
+  const reference = filenamePart(labelDocument.orderNumber) || "sem-numero";
+  const filename = `etiquetas-oc-${reference}.pdf`;
 
   document.save(filename);
   return filename;
