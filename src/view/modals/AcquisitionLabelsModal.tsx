@@ -51,7 +51,10 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   order: PurchaseOrder;
-  acquisitions: Acquisition[];
+  acquisitions?: Acquisition[];
+  labelSourceItems?: AcquisitionLabelSourceItem[];
+  sourceMode?: "PURCHASES" | "RECEIPT";
+  sourceContext?: string;
   brand: PdfOrganizationBrand;
 };
 
@@ -119,11 +122,17 @@ export function AcquisitionLabelsModal({
   onClose,
   order,
   acquisitions,
+  labelSourceItems,
+  sourceMode = "PURCHASES",
+  sourceContext,
   brand,
 }: Props) {
+  const isReceiptSource = sourceMode === "RECEIPT";
   const sourceItems = useMemo(
-    () => buildAcquisitionLabelSourceItems(order, acquisitions),
-    [acquisitions, order]
+    () =>
+      labelSourceItems ??
+      buildAcquisitionLabelSourceItems(order, acquisitions ?? []),
+    [acquisitions, labelSourceItems, order]
   );
   const defaultRecipientName =
     order.customer.tradeName || order.customer.legalName;
@@ -197,7 +206,9 @@ export function AcquisitionLabelsModal({
 
   let blockingMessage = "";
   if (!sourceItems.length) {
-    blockingMessage = "Esta ordem ainda não possui aquisições disponíveis para etiquetar.";
+    blockingMessage = isReceiptSource
+      ? "Esta chegada não possui itens disponíveis para etiquetar."
+      : "Esta ordem ainda não possui aquisições disponíveis para etiquetar.";
   } else if (!recipientName.trim()) {
     blockingMessage = "Informe o nome do cliente que receberá os volumes.";
   } else if (!volumes.length) {
@@ -218,7 +229,11 @@ export function AcquisitionLabelsModal({
 
   function resetOneVolumePerItem() {
     setVolumes(buildDefaultAcquisitionLabelVolumes(sourceItems));
-    toast.success("Restaurado um volume para cada item de cada compra.");
+    toast.success(
+      isReceiptSource
+        ? "Restaurado um volume para cada item desta chegada."
+        : "Restaurado um volume para cada item de cada compra."
+    );
   }
 
   function groupIntoBoxes() {
@@ -404,8 +419,9 @@ export function AcquisitionLabelsModal({
             Personalizar etiquetas de identificação
           </DialogTitle>
           <DialogDescription>
-            Monte as caixas, distribua as quantidades e escolha exatamente o
-            que será impresso em cada volume.
+            {isReceiptSource
+              ? "Personalize os volumes desta chegada antes de gerar as etiquetas."
+              : "Monte as caixas, distribua as quantidades e escolha exatamente o que será impresso em cada volume."}
           </DialogDescription>
         </DialogHeader>
 
@@ -415,9 +431,16 @@ export function AcquisitionLabelsModal({
               <p className="text-sm font-semibold">
                 Ordem {order.orderNumber} · {defaultRecipientName}
               </p>
+              {sourceContext && (
+                <p className="mt-1 text-xs font-medium text-emerald-300">
+                  {sourceContext}
+                </p>
+              )}
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 A personalização vale somente para este PDF e não altera as
-                compras ou quantidades registradas na ordem.
+                {isReceiptSource
+                  ? " quantidades registradas nesta chegada."
+                  : " compras ou quantidades registradas na ordem."}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -484,8 +507,9 @@ export function AcquisitionLabelsModal({
                   <h3 className="text-sm font-semibold">Distribuição rápida</h3>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Por padrão, cada item de cada pedido ao fornecedor gera seu
-                  próprio volume. Depois, você pode agrupar ou dividir como precisar.
+                  {isReceiptSource
+                    ? "Por padrão, cada item recebido nesta chegada gera seu próprio volume. Depois, você pode agrupar ou dividir como precisar."
+                    : "Por padrão, cada item de cada pedido ao fornecedor gera seu próprio volume. Depois, você pode agrupar ou dividir como precisar."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -497,7 +521,9 @@ export function AcquisitionLabelsModal({
                   onClick={resetOneVolumePerItem}
                 >
                   <IconTags />
-                  Restaurar padrão das compras
+                  {isReceiptSource
+                    ? "Restaurar padrão da chegada"
+                    : "Restaurar padrão das compras"}
                 </Button>
                 <Button
                   type="button"
@@ -562,7 +588,11 @@ export function AcquisitionLabelsModal({
                 <h3 className="text-sm font-semibold">Controle de quantidades</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                   É permitido deixar saldo sem etiqueta, mas nunca distribuir
-                  mais do que foi comprado para a ordem.
+                  mais do que foi{" "}
+                  {isReceiptSource
+                    ? "recebido nesta chegada"
+                    : "comprado para a ordem"}
+                  .
                 </p>
               </div>
             </div>

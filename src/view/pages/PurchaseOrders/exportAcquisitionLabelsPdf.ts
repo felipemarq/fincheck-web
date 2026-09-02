@@ -1,6 +1,7 @@
 import type { jsPDF } from "jspdf";
 
 import type { Acquisition } from "@/app/entities/Acquisition";
+import type { AcquisitionReceipt } from "@/app/entities/AcquisitionReceipt";
 import type { PurchaseOrder } from "@/app/entities/PurchaseOrder";
 import {
   fitPdfLogo,
@@ -549,6 +550,69 @@ export function buildAcquisitionLabelSourceItems(
           })
       )
   );
+}
+
+export function buildAcquisitionReceiptLabelSourceItems(
+  order: PurchaseOrder,
+  acquisition: Acquisition,
+  receipt: AcquisitionReceipt
+) {
+  const orderItems = new Map(
+    order.items
+      .filter((item) => item.id)
+      .map((item) => [item.id as string, item])
+  );
+  const acquisitionItems = new Map(
+    acquisition.items
+      .filter((item) => item.id)
+      .map((item) => [item.id as string, item])
+  );
+  const receivedAt = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+  }).format(new Date(receipt.receivedAt));
+
+  return receipt.items
+    .filter((receiptItem) => receiptItem.receivedQuantity > 0)
+    .map((receiptItem, index): AcquisitionLabelSourceItem => {
+      const orderItem = orderItems.get(receiptItem.purchaseOrderItemId);
+      const acquisitionItem = acquisitionItems.get(
+        receiptItem.acquisitionItemId
+      );
+      const allocation = acquisitionItem?.allocations.find(
+        (candidate) =>
+          candidate.purchaseOrderId === order.id &&
+          candidate.purchaseOrderItemId === receiptItem.purchaseOrderItemId
+      );
+
+      return {
+        id: [
+          receipt.id,
+          receiptItem.id ?? receiptItem.acquisitionItemId,
+          receiptItem.purchaseOrderItemId,
+          index,
+        ].join(":"),
+        purchaseLabel: `Chegada ${receivedAt}`,
+        productDescription:
+          orderItem?.description ||
+          receiptItem.description ||
+          acquisitionItem?.description ||
+          "Produto não informado",
+        brand: orderItem?.brand || acquisitionItem?.brand,
+        packaging: acquisitionItem?.packaging,
+        availableQuantity: roundQuantity(receiptItem.receivedQuantity),
+        unit:
+          orderItem?.originalUnit ||
+          receiptItem.originalUnit ||
+          allocation?.originalUnit ||
+          acquisitionItem?.normalizedUnit ||
+          "UN",
+        lineNumber:
+          orderItem?.lineNumber ||
+          receiptItem.lineNumber ||
+          allocation?.lineNumber ||
+          index + 1,
+      };
+    });
 }
 
 export function toAcquisitionLabelVolumeItem(

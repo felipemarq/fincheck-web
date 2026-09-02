@@ -22,6 +22,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import type { Acquisition } from "@/app/entities/Acquisition";
+import type { AcquisitionReceipt } from "@/app/entities/AcquisitionReceipt";
 import type { Delivery } from "@/app/entities/Delivery";
 import type {
   Invoice,
@@ -47,6 +48,9 @@ import { DeliveryModal } from "@/view/modals/DeliveryModal";
 import { InvoiceModal } from "@/view/modals/InvoiceModal";
 import { ReceivablePaymentModal } from "@/view/modals/ReceivablePaymentModal";
 import { organizationBrandFromEntity } from "@/view/utils/pdfOrganizationBrand";
+import {
+  buildAcquisitionReceiptLabelSourceItems,
+} from "./exportAcquisitionLabelsPdf";
 import { exportPurchaseOrderPdf } from "./exportPurchaseOrderPdf";
 import {
   formatCurrency,
@@ -185,6 +189,10 @@ export default function PurchaseOrderDetails() {
     useState<string | null>(null);
   const [receiptAcquisition, setReceiptAcquisition] =
     useState<Acquisition | null>(null);
+  const [receiptLabelsContext, setReceiptLabelsContext] = useState<{
+    acquisition: Acquisition;
+    receipt: AcquisitionReceipt;
+  } | null>(null);
   const [isLabelsModalOpen, setIsLabelsModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] =
     useState<Delivery | null>(null);
@@ -263,6 +271,18 @@ export default function PurchaseOrderDetails() {
     setIsAcquisitionModalOpen(false);
     setSelectedAcquisition(null);
     setInitialPurchaseOrderItemId(null);
+  };
+
+  const openReceiptLabels = (receipt: AcquisitionReceipt) => {
+    if (!receiptAcquisition) {
+      return;
+    }
+
+    setReceiptLabelsContext({
+      acquisition: receiptAcquisition,
+      receipt,
+    });
+    setReceiptAcquisition(null);
   };
 
   const openDelivery = (
@@ -1428,6 +1448,7 @@ export default function PurchaseOrderDetails() {
         onClose={() => setReceiptAcquisition(null)}
         order={order}
         acquisition={receiptAcquisition}
+        onGenerateLabels={openReceiptLabels}
       />
       {isLabelsModalOpen && acquisitions && (
         <AcquisitionLabelsModal
@@ -1435,6 +1456,23 @@ export default function PurchaseOrderDetails() {
           onClose={() => setIsLabelsModalOpen(false)}
           order={order}
           acquisitions={acquisitions}
+          brand={organizationBrandFromEntity(activeEntity)}
+        />
+      )}
+      {receiptLabelsContext && (
+        <AcquisitionLabelsModal
+          isOpen
+          onClose={() => setReceiptLabelsContext(null)}
+          order={order}
+          labelSourceItems={buildAcquisitionReceiptLabelSourceItems(
+            order,
+            receiptLabelsContext.acquisition,
+            receiptLabelsContext.receipt
+          )}
+          sourceMode="RECEIPT"
+          sourceContext={`Chegada de ${formatDate(
+            receiptLabelsContext.receipt.receivedAt
+          )}`}
           brand={organizationBrandFromEntity(activeEntity)}
         />
       )}

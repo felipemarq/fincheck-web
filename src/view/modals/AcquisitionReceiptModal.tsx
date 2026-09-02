@@ -3,6 +3,7 @@ import {
   IconCalendarCheck,
   IconEdit,
   IconPackageImport,
+  IconTags,
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -75,6 +76,7 @@ type Props = {
   order: PurchaseOrder;
   acquisition: Acquisition | null;
   initialPurchaseOrderItemId?: string | null;
+  onGenerateLabels?: (receipt: AcquisitionReceipt) => void;
 };
 
 const EMPTY_RECEIPTS: AcquisitionReceipt[] = [];
@@ -156,6 +158,7 @@ export function AcquisitionReceiptModal({
   order,
   acquisition,
   initialPurchaseOrderItemId,
+  onGenerateLabels,
 }: Props) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
@@ -253,7 +256,10 @@ export function AcquisitionReceiptModal({
     ]);
   };
 
-  const onSubmit = handleSubmit(async (values) => {
+  const saveReceipt = async (
+    values: ReceiptFormData,
+    generateLabels: boolean
+  ) => {
     if (!selectedEntityId || !acquisition) {
       return;
     }
@@ -277,23 +283,33 @@ export function AcquisitionReceiptModal({
     };
 
     try {
+      let savedReceipt: AcquisitionReceipt;
+
       if (editing) {
-        await updateMutation.mutateAsync({
+        savedReceipt = await updateMutation.mutateAsync({
           ...payload,
           receiptId: editing.id,
         });
         toast.success("Recebimento atualizado.");
       } else {
-        await createMutation.mutateAsync(payload);
+        savedReceipt = await createMutation.mutateAsync(payload);
         toast.success("Chegada registrada.");
       }
 
       setEditing(null);
       await refresh();
+
+      if (generateLabels && onGenerateLabels) {
+        onGenerateLabels(savedReceipt);
+      }
     } catch (error) {
       treatAxiosError(error);
     }
-  });
+  };
+  const onSubmit = handleSubmit((values) => saveReceipt(values, false));
+  const onSubmitAndGenerateLabels = handleSubmit((values) =>
+    saveReceipt(values, true)
+  );
 
   const cancelReceipt = async () => {
     if (!selectedEntityId || !acquisition || !editing) {
@@ -373,28 +389,46 @@ export function AcquisitionReceiptModal({
           {receipts.length > 0 && (
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {receipts.map((receipt) => (
-                <button
+                <article
                   key={receipt.id}
-                  type="button"
-                  disabled={receipt.status === "CANCELLED"}
-                  onClick={() => setEditing(receipt)}
-                  className="flex items-center justify-between rounded-xl border bg-background/30 p-3 text-left disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl border bg-background/30 p-2"
                 >
-                  <span>
-                    <span className="block text-sm font-medium">
-                      {new Date(receipt.receivedAt).toLocaleDateString(
-                        "pt-BR"
-                      )}
+                  <button
+                    type="button"
+                    disabled={receipt.status === "CANCELLED"}
+                    onClick={() => setEditing(receipt)}
+                    className="flex min-w-0 flex-1 items-center justify-between rounded-lg p-1 text-left disabled:opacity-50"
+                  >
+                    <span>
+                      <span className="block text-sm font-medium">
+                        {new Date(receipt.receivedAt).toLocaleDateString(
+                          "pt-BR"
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {receipt.totalQuantity.toLocaleString("pt-BR")} unidades
+                        {receipt.status === "CANCELLED" ? " - cancelado" : ""}
+                      </span>
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {receipt.totalQuantity.toLocaleString("pt-BR")} unidades
-                      {receipt.status === "CANCELLED" ? " - cancelado" : ""}
-                    </span>
-                  </span>
-                  {receipt.status !== "CANCELLED" && (
-                    <IconEdit className="size-4" />
+                    {receipt.status !== "CANCELLED" && (
+                      <IconEdit className="size-4 shrink-0" />
+                    )}
+                  </button>
+                  {receipt.status !== "CANCELLED" && onGenerateLabels && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Gerar etiquetas da chegada de ${new Date(
+                        receipt.receivedAt
+                      ).toLocaleDateString("pt-BR")}`}
+                      onClick={() => onGenerateLabels(receipt)}
+                    >
+                      <IconTags />
+                      Etiquetas
+                    </Button>
                   )}
-                </button>
+                </article>
               ))}
             </div>
           )}
@@ -512,12 +546,27 @@ export function AcquisitionReceiptModal({
               </Button>
               <Button
                 type="submit"
+                variant={onGenerateLabels ? "outline" : "default"}
                 isLoading={
                   createMutation.isPending || updateMutation.isPending
                 }
               >
                 {editing ? "Salvar recebimento" : "Registrar chegada"}
               </Button>
+              {onGenerateLabels && (
+                <Button
+                  type="button"
+                  isLoading={
+                    createMutation.isPending || updateMutation.isPending
+                  }
+                  onClick={onSubmitAndGenerateLabels}
+                >
+                  <IconTags />
+                  {editing
+                    ? "Salvar e gerar etiquetas"
+                    : "Registrar e gerar etiquetas"}
+                </Button>
+              )}
             </div>
           </div>
         </form>
