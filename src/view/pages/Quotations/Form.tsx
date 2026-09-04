@@ -61,6 +61,19 @@ import { formatQuotationCurrency } from "./quotationPresentation";
 const MAX_IMAGES_PER_ITEM = 3;
 const MAX_IMAGE_SIZE = 3 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const DRAFT_AUTO_SAVE_DELAY_MS = 1_000;
+
+type DraftAutoSaveStatus =
+  | "waiting"
+  | "pending"
+  | "saving"
+  | "saved"
+  | "error";
+
+type DraftAutoSaveTarget = {
+  payload: QuotationInput;
+  signature: string;
+};
 
 const quotationItemSchema = z.object({
   id: z.string().uuid().optional(),
@@ -287,6 +300,69 @@ function fileToBase64(file: File) {
   });
 }
 
+function buildQuotationPayload(
+  formData: QuotationFormData,
+  status: QuotationInput["status"] = formData.status
+): QuotationInput {
+  return {
+    customerId: formData.customerId,
+    number: formData.number.trim(),
+    status,
+    issuedAt: toIsoDate(formData.issuedAt),
+    validUntil: formData.validUntil
+      ? toIsoDate(formData.validUntil)
+      : undefined,
+    sellerName: formData.sellerName.trim(),
+    sellerDocument: optionalText(formData.sellerDocument),
+    sellerEmail: optionalText(formData.sellerEmail),
+    sellerPhone: optionalText(formData.sellerPhone),
+    sellerAddress: optionalText(formData.sellerAddress),
+    customerAddress: optionalText(formData.customerAddress),
+    paymentTerms: optionalText(formData.paymentTerms),
+    deliveryTerms: optionalText(formData.deliveryTerms),
+    notes: optionalText(formData.notes),
+    internalNotes: optionalText(formData.internalNotes),
+    freight: Number(formData.freight),
+    discount: Number(formData.discount),
+    items: formData.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      lineNumber: Number(item.lineNumber),
+      quantity: Number(item.quantity),
+      unitPrice: Number(item.unitPrice),
+      notes: optionalText(item.notes),
+    })),
+  };
+}
+
+function buildDraftAutoSaveTarget(
+  formData: QuotationFormData
+): DraftAutoSaveTarget | null {
+  const completeItems = formData.items.filter((item) => item.productId.trim());
+  const result = quotationSchema.safeParse({
+    ...formData,
+    status: "DRAFT",
+    items: completeItems,
+  });
+
+  if (!result.success) return null;
+
+  const payload = buildQuotationPayload(result.data, "DRAFT");
+  const itemsWithoutIds = payload.items.map(({ id: _id, ...item }) => item);
+
+  return {
+    payload,
+    signature: JSON.stringify({ ...payload, items: itemsWithoutIds }),
+  };
+}
+
+function formatAutoSaveTime(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export default function QuotationForm() {
   const navigate = useNavigate();
   const { quotationId = "" } = useParams();
@@ -313,8 +389,20 @@ export default function QuotationForm() {
   const [removedImageIds, setRemovedImageIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [draftQuotationId, setDraftQuotationId] = useState("");
   const imagesRef = useRef(imagesByFieldId);
   const initializedQuotationId = useRef<string | null>(null);
+  const persistedQuotationIdRef = useRef(quotationId);
+  const lastAutoSavedSignatureRef = useRef<string | null>(null);
+  const latestDraftAutoSaveTargetRef = useRef<DraftAutoSaveTarget | null>(null);
+  const autoSaveInFlightRef = useRef(false);
+  const manualSaveInProgressRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const [draftAutoSaveStatus, setDraftAutoSaveStatus] =
+    useState<DraftAutoSaveStatus>("waiting");
+  const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null);
+  const [autoSaveRevision, setAutoSaveRevision] = useState(0);
+  const persistedQuotationId = quotationId || draftQuotationId;
 
   const { customers, isFetchingCustomers } = useCustomers(
     { entityId: selectedEntityId ?? "", active: true },
@@ -361,7 +449,22 @@ export default function QuotationForm() {
   });
   const createMutation = useMutation({ mutationFn: quotationService.create });
   const updateMutation = useMutation({ mutationFn: quotationService.update });
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    draftAutoSaveStatus === "saving";
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (quotationId) persistedQuotationIdRef.current = quotationId;
+  }, [quotationId]);
 
   useEffect(() => {
     imagesRef.current = imagesByFieldId;
@@ -389,8 +492,18 @@ export default function QuotationForm() {
       )
     );
     setRemovedImageIds(new Set());
-    reset(buildEditValues(quotation));
+    const editValues = buildEditValues(quotation);
+    reset(editValues);
     initializedQuotationId.current = quotation.id;
+
+    if (quotation.status === "DRAFT") {
+      const savedDraft = buildDraftAutoSaveTarget(editValues);
+      lastAutoSavedSignatureRef.current = savedDraft?.signature ?? null;
+      setDraftAutoSaveStatus("saved");
+      setDraftSavedAt(
+        quotation.updatedAt ? new Date(quotation.updatedAt) : new Date()
+      );
+    }
   }, [quotation, reset]);
 
   useEffect(() => {
@@ -404,9 +517,10 @@ export default function QuotationForm() {
     });
   }, [activeEntity, isEditing, organizationProfileQuery.data, setValue]);
 
-  const watchedItems = watch("items");
-  const freight = Number(watch("freight")) || 0;
-  const discount = Number(watch("discount")) || 0;
+  const watchedForm = watch();
+  const watchedItems = watchedForm.items;
+  const freight = Number(watchedForm.freight) || 0;
+  const discount = Number(watchedForm.discount) || 0;
   const subtotal = roundMoney(
     watchedItems.reduce(
       (total, item) =>
@@ -430,6 +544,143 @@ export default function QuotationForm() {
           : 0),
       0
     );
+  const draftAutoSaveTarget = buildDraftAutoSaveTarget(watchedForm);
+  const draftAutoSaveSignature = draftAutoSaveTarget?.signature ?? null;
+  const canAutoSaveDraft =
+    !isEditing || Boolean(quotation?.status === "DRAFT");
+
+  latestDraftAutoSaveTargetRef.current = draftAutoSaveTarget;
+
+  useEffect(() => {
+    if (
+      !selectedEntityId ||
+      !canAutoSaveDraft ||
+      !draftAutoSaveSignature ||
+      manualSaveInProgressRef.current ||
+      (isEditing && (isFetchingQuotation || !quotation))
+    ) {
+      return;
+    }
+
+    if (draftAutoSaveSignature === lastAutoSavedSignatureRef.current) {
+      return;
+    }
+
+    setDraftAutoSaveStatus("pending");
+
+    const timeout = window.setTimeout(async () => {
+      if (autoSaveInFlightRef.current || manualSaveInProgressRef.current) {
+        return;
+      }
+
+      const target = latestDraftAutoSaveTargetRef.current;
+      if (!target || target.signature === lastAutoSavedSignatureRef.current) {
+        return;
+      }
+
+      autoSaveInFlightRef.current = true;
+      setDraftAutoSaveStatus("saving");
+
+      try {
+        const quotationIdToUpdate = persistedQuotationIdRef.current;
+        const savedQuotation = quotationIdToUpdate
+          ? await quotationService.update({
+              ...target.payload,
+              entityId: selectedEntityId,
+              quotationId: quotationIdToUpdate,
+            })
+          : await quotationService.create({
+              ...target.payload,
+              entityId: selectedEntityId,
+            });
+
+        const currentItems = getValues("items");
+        savedQuotation.items.forEach((savedItem) => {
+          const itemIndex = currentItems.findIndex(
+            (item) =>
+              item.lineNumber === savedItem.lineNumber &&
+              item.productId === savedItem.productId
+          );
+
+          if (itemIndex >= 0 && currentItems[itemIndex]?.id !== savedItem.id) {
+            setValue(`items.${itemIndex}.id`, savedItem.id, {
+              shouldDirty: false,
+              shouldValidate: false,
+            });
+          }
+        });
+
+        lastAutoSavedSignatureRef.current = target.signature;
+        queryClient.setQueryData(
+          [QueryKeys.QUOTATIONS, selectedEntityId, savedQuotation.id],
+          savedQuotation
+        );
+        void queryClient.invalidateQueries({
+          queryKey: [QueryKeys.QUOTATIONS, selectedEntityId],
+          refetchType: "none",
+        });
+
+        if (isMountedRef.current) {
+          setDraftAutoSaveStatus("saved");
+          setDraftSavedAt(new Date());
+        }
+
+        if (!quotationIdToUpdate) {
+          persistedQuotationIdRef.current = savedQuotation.id;
+          setDraftQuotationId(savedQuotation.id);
+          toast.success("Rascunho criado e protegido automaticamente.");
+        }
+      } catch {
+        if (isMountedRef.current) {
+          setDraftAutoSaveStatus("error");
+        }
+      } finally {
+        autoSaveInFlightRef.current = false;
+
+        if (
+          isMountedRef.current &&
+          latestDraftAutoSaveTargetRef.current?.signature !== target.signature
+        ) {
+          setAutoSaveRevision((current) => current + 1);
+        }
+      }
+    }, persistedQuotationId ? DRAFT_AUTO_SAVE_DELAY_MS : 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    autoSaveRevision,
+    canAutoSaveDraft,
+    draftAutoSaveSignature,
+    getValues,
+    isEditing,
+    isFetchingQuotation,
+    persistedQuotationId,
+    queryClient,
+    quotation,
+    selectedEntityId,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      const currentTarget = latestDraftAutoSaveTargetRef.current;
+      const hasPendingImageChanges =
+        Object.values(imagesRef.current).some((images) => images.length > 0) ||
+        removedImageIds.size > 0;
+      const hasPendingChanges =
+        (Boolean(currentTarget) &&
+          currentTarget?.signature !== lastAutoSavedSignatureRef.current) ||
+        hasPendingImageChanges;
+
+      if (!canAutoSaveDraft || !hasPendingChanges) return;
+
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [canAutoSaveDraft, draftAutoSaveSignature, removedImageIds]);
 
   const handleCustomerChange = (customerId: string) => {
     setValue("customerId", customerId, {
@@ -579,6 +830,12 @@ export default function QuotationForm() {
 
   const onSubmit = handleSubmit(async (formData) => {
     if (!selectedEntityId) return;
+    if (autoSaveInFlightRef.current) {
+      toast.info("Aguarde o salvamento automatico do rascunho.");
+      return;
+    }
+
+    manualSaveInProgressRef.current = true;
 
     const imagesByLineNumber = new Map(
       formData.items.map((item, index) => [
@@ -586,42 +843,15 @@ export default function QuotationForm() {
         imagesByFieldId[fields[index]?.fieldKey] ?? [],
       ])
     );
-    const payload: QuotationInput = {
-      customerId: formData.customerId,
-      number: formData.number.trim(),
-      status: formData.status,
-      issuedAt: toIsoDate(formData.issuedAt),
-      validUntil: formData.validUntil
-        ? toIsoDate(formData.validUntil)
-        : undefined,
-      sellerName: formData.sellerName.trim(),
-      sellerDocument: optionalText(formData.sellerDocument),
-      sellerEmail: optionalText(formData.sellerEmail),
-      sellerPhone: optionalText(formData.sellerPhone),
-      sellerAddress: optionalText(formData.sellerAddress),
-      customerAddress: optionalText(formData.customerAddress),
-      paymentTerms: optionalText(formData.paymentTerms),
-      deliveryTerms: optionalText(formData.deliveryTerms),
-      notes: optionalText(formData.notes),
-      internalNotes: optionalText(formData.internalNotes),
-      freight: Number(formData.freight),
-      discount: Number(formData.discount),
-      items: formData.items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        lineNumber: Number(item.lineNumber),
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
-        notes: optionalText(item.notes),
-      })),
-    };
+    const payload = buildQuotationPayload(formData);
 
     try {
-      const savedQuotation = isEditing
+      const quotationIdToUpdate = persistedQuotationIdRef.current;
+      const savedQuotation = quotationIdToUpdate
         ? await updateMutation.mutateAsync({
             ...payload,
             entityId: selectedEntityId,
-            quotationId,
+            quotationId: quotationIdToUpdate,
           })
         : await createMutation.mutateAsync({
             ...payload,
@@ -629,7 +859,7 @@ export default function QuotationForm() {
           });
       let failedImageChanges = 0;
 
-      if (isEditing && removedImageIds.size > 0) {
+      if (quotationIdToUpdate && removedImageIds.size > 0) {
         const retainedImageIds = new Set(
           savedQuotation.items.flatMap((item) =>
             item.images.map((image) => image.id)
@@ -677,7 +907,7 @@ export default function QuotationForm() {
         );
       } else {
         toast.success(
-          isEditing
+          quotationIdToUpdate
             ? "Cotacao atualizada."
             : totalImages > 0
               ? "Cotacao e imagens salvas."
@@ -687,8 +917,39 @@ export default function QuotationForm() {
       navigate(`/quotations/${savedQuotation.id}`);
     } catch (error) {
       treatAxiosError(error);
+    } finally {
+      manualSaveInProgressRef.current = false;
     }
   });
+
+  const displayedDraftAutoSaveStatus =
+    draftAutoSaveStatus === "saving" || draftAutoSaveTarget
+      ? draftAutoSaveStatus
+      : "waiting";
+  const draftAutoSaveMessage = (() => {
+    if (displayedDraftAutoSaveStatus === "saving") {
+      return "Salvando rascunho...";
+    }
+    if (displayedDraftAutoSaveStatus === "pending") {
+      return "Alteracoes aguardando salvamento automatico.";
+    }
+    if (displayedDraftAutoSaveStatus === "error") {
+      return "Falha ao salvar automaticamente. Tente alterar um campo ou use Salvar.";
+    }
+    if (displayedDraftAutoSaveStatus === "saved") {
+      return draftSavedAt
+        ? `Rascunho salvo automaticamente as ${formatAutoSaveTime(draftSavedAt)}.`
+        : "Rascunho salvo automaticamente.";
+    }
+    if (!watchedForm.customerId) {
+      return "Selecione o cliente para iniciar o salvamento automatico.";
+    }
+    if (!watchedItems.some((item) => item.productId)) {
+      return "O rascunho sera criado ao selecionar o primeiro produto.";
+    }
+
+    return "Complete os campos obrigatorios para proteger o rascunho.";
+  })();
 
   if (isEditing && isFetchingQuotation && !quotation) {
     return (
@@ -755,16 +1016,43 @@ export default function QuotationForm() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Button type="button" variant="ghost" className="w-fit" asChild>
             <Link
-              to={isEditing ? `/quotations/${quotationId}` : "/quotations"}
+              to={
+                persistedQuotationId
+                  ? `/quotations/${persistedQuotationId}`
+                  : "/quotations"
+              }
             >
               <IconArrowLeft />
               Voltar
             </Link>
           </Button>
-          <Button type="submit" isLoading={isSaving}>
-            <IconDeviceFloppy />
-            {isEditing ? "Salvar alteracoes" : "Salvar cotacao"}
-          </Button>
+          <div className="flex flex-col gap-2 sm:items-end">
+            {canAutoSaveDraft && (
+              <div
+                aria-live="polite"
+                className={`flex max-w-md items-center gap-2 rounded-full border px-3 py-2 text-xs ${
+                  displayedDraftAutoSaveStatus === "error"
+                    ? "border-destructive/35 bg-destructive/10 text-destructive"
+                    : displayedDraftAutoSaveStatus === "saved"
+                      ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300"
+                      : "border-border bg-muted/30 text-muted-foreground"
+                }`}
+              >
+                <IconDeviceFloppy
+                  className={
+                    displayedDraftAutoSaveStatus === "saving"
+                      ? "size-4 animate-pulse"
+                      : "size-4"
+                  }
+                />
+                <span>{draftAutoSaveMessage}</span>
+              </div>
+            )}
+            <Button type="submit" isLoading={isSaving}>
+              <IconDeviceFloppy />
+              {persistedQuotationId ? "Salvar alteracoes" : "Salvar cotacao"}
+            </Button>
+          </div>
         </div>
 
         <section className="relative overflow-hidden rounded-2xl border bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_40%),linear-gradient(135deg,rgba(255,255,255,0.04),transparent)] p-5 sm:p-7">
@@ -1267,7 +1555,7 @@ export default function QuotationForm() {
                 isLoading={isSaving}
               >
                 <IconDeviceFloppy />
-                {isEditing ? "Salvar alteracoes" : "Salvar e revisar"}
+                {persistedQuotationId ? "Salvar alteracoes" : "Salvar e revisar"}
               </Button>
             </CardContent>
           </Card>
@@ -1278,6 +1566,7 @@ export default function QuotationForm() {
         isOpen={quickProductItemIndex !== null}
         onClose={() => setQuickProductItemIndex(null)}
         onCreated={handleQuickProductCreated}
+        preventAccidentalClose
       />
     </>
   );

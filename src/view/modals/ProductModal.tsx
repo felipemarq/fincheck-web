@@ -79,6 +79,7 @@ type ProductModalProps = {
   onClose: () => void;
   product?: Product | null;
   onCreated?: (product: Product) => void;
+  preventAccidentalClose?: boolean;
 };
 
 export function ProductModal({
@@ -86,6 +87,7 @@ export function ProductModal({
   onClose,
   product,
   onCreated,
+  preventAccidentalClose = false,
 }: ProductModalProps) {
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
@@ -235,7 +237,15 @@ export function ProductModal({
         }
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        onEscapeKeyDown={(event) => {
+          if (preventAccidentalClose) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (preventAccidentalClose) event.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Editar produto" : "Novo produto"}
