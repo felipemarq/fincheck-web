@@ -42,3 +42,15 @@ continua aberto para revisão, sem sobrescrever alterações de outro membro.
 Base remota: `feature/saas-foundation`, commit `afba87d`. Branch de entrega:
 `codex/shopping-lists`. O módulo exige a migração `0014_shopping-lists.sql` e a
 stack adicional da API; consulte `docs/shopping-lists.md` no repositório API.
+
+## Publicação
+
+Execute `./scripts/deployShoppingLists.ps1` com AWS CLI e as credenciais da
+conta configurada. O script compila com a API de produção, preserva os assets
+anteriores, copia o `index.html` anterior para `releases/shopping-lists/` no
+mesmo bucket e publica os novos assets antes do HTML. A invalidação e o caminho
+de rollback ficam registrados em `tmp/shopping-lists-web-release.json`.
+
+Para rollback, copie o `backupIndex` registrado para `s3://moneystack-frontend/index.html`
+e invalide `/*` na distribuição `E25QMGVM17EIA6`. Preserve as tabelas das listas
+e a stack adicional da API para manter o histórico.
