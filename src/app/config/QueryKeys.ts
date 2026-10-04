@@ -1,4 +1,5 @@
 export enum QueryKeys {
+  SHOPPING_LISTS = "shoppingLists",
   ME = "me",
   CUSTOMERS = "customers",
   PRODUCTS = "products",

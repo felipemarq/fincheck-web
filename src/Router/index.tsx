@@ -29,6 +29,7 @@ const ResetPassword = lazy(() => import("@/view/pages/ResetPassword"));
 const BodyWeight = lazy(() => import("@/view/pages/BodyWeight"));
 const VerifyEmail = lazy(() => import("@/view/pages/VerifyEmail"));
 const OrganizationTeam = lazy(() => import("@/view/pages/OrganizationTeam"));
+const ShoppingLists = lazy(() => import("@/view/pages/ShoppingLists"));
 const OrganizationProfile = lazy(
   () => import("@/view/pages/OrganizationProfile")
 );
@@ -128,6 +129,8 @@ export const Router = () => {
                 }
               >
                 <Route path="/purchases" element={<SupplierPurchases />} />
+                <Route path="/shopping-lists" element={<ShoppingLists />} />
+                <Route path="/shopping-lists/:shoppingListId" element={<ShoppingLists />} />
               </Route>
               <Route
                 element={

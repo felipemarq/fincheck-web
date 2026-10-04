@@ -6,6 +6,11 @@ import { SidebarTrigger } from "@/view/components/ui/sidebar";
 
 const routeMeta = [
   {
+    matcher: (pathname: string) => pathname.startsWith("/shopping-lists"),
+    title: "Listas de compras",
+    description: "Links, detalhes e checklist compartilhado da equipe.",
+  },
+  {
     matcher: (pathname: string) => pathname === "/dashboard",
     title: "Painel operacional",
     description: "Pendencias, prazos e resultados da organizacao ativa.",

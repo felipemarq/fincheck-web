@@ -69,6 +69,12 @@ const navMain: Array<{
     permission: "purchases.read",
   },
   {
+    title: "Listas de compras",
+    url: "/shopping-lists",
+    icon: IconListDetails,
+    permission: "purchases.read",
+  },
+  {
     title: "Clientes",
     url: "/customers",
     icon: IconUsers,

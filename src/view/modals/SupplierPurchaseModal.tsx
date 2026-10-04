@@ -17,6 +17,7 @@ import type {
 } from "@/app/entities/Acquisition";
 import type { PurchaseOrderItemQueueItem } from "@/app/entities/PurchaseOrderItemQueue";
 import type { CreditCard } from "@/app/entities/CreditCard";
+import type { ShoppingListItem } from "@/app/entities/ShoppingList";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useCreditCards } from "@/app/hooks/useCreditCards";
 import { useProducts } from "@/app/hooks/useProducts";
@@ -97,6 +98,8 @@ type Props = {
   acquisition?: Acquisition | null;
   destinations: PurchaseOrderItemQueueItem[];
   initialDestination?: PurchaseOrderItemQueueItem | null;
+  initialShoppingItem?: ShoppingListItem;
+  onCreate?: (input: AcquisitionInput) => Promise<Acquisition>;
 };
 
 const paymentLabels: Record<AcquisitionPaymentMethod, string> = {
@@ -364,8 +367,10 @@ export function SupplierPurchaseModal({
   acquisition,
   destinations,
   initialDestination,
+  initialShoppingItem,
+  onCreate,
 }: Props) {
-  const { selectedEntityId } = useAuth();
+  const { selectedEntityId, user } = useAuth();
   const queryClient = useQueryClient();
   const editing = Boolean(acquisition);
   const itemsLocked =
@@ -386,9 +391,33 @@ export function SupplierPurchaseModal({
     if (!isOpen) return;
     setHeader(makeHeader(acquisition));
     setLines(makeLines(acquisition, initialDestination));
-  }, [acquisition, initialDestination, isOpen]);
+    if (initialShoppingItem && !acquisition) {
+      const line = emptyLine(initialDestination);
+      line.productId = initialShoppingItem.productId ?? line.productId;
+      line.acquiredQuantity = initialShoppingItem.quantity ?? line.acquiredQuantity;
+      line.costUnitPrice = initialShoppingItem.estimatedUnitPrice ?? 0;
+      line.lineTotal = line.acquiredQuantity * line.costUnitPrice;
+      line.notes = initialShoppingItem.notes ?? "";
+      line.allocations = initialShoppingItem.purchaseOrderItemId ? [{
+        key: key(), purchaseOrderItemId: initialShoppingItem.purchaseOrderItemId,
+        allocatedQuantity: line.acquiredQuantity, notes: "",
+      }] : [];
+      if (!line.allocations.length && initialShoppingItem.purchaseOrderId) {
+        const matching = destinations.filter(destination => destination.order.id === initialShoppingItem.purchaseOrderId &&
+          (!line.productId || destination.productId === line.productId));
+        if (matching.length === 1) {
+          line.productId = matching[0].productId;
+          line.allocations = [{ key: key(), purchaseOrderItemId: matching[0].id, allocatedQuantity: line.acquiredQuantity, notes: "" }];
+        }
+      }
+      setLines([line]);
+      setHeader({ ...makeHeader(), sellerName: initialShoppingItem.sellerName ?? "",
+        channel: new URL(initialShoppingItem.url).hostname.slice(0, 120), buyerName: user?.name ?? "" });
+    }
+  }, [acquisition, initialDestination, initialShoppingItem, isOpen]);
 
-  const createMutation = useMutation({ mutationFn: supplierPurchaseService.create });
+  const createMutation = useMutation({ mutationFn: (input: AcquisitionInput & { entityId: string }) =>
+    onCreate ? onCreate(input) : supplierPurchaseService.create(input) });
   const updateMutation = useMutation({ mutationFn: supplierPurchaseService.update });
   const itemsSubtotal = lines.reduce(
     (total, line) =>
@@ -603,7 +632,7 @@ export function SupplierPurchaseModal({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && !pending && onClose()}>
         <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-6xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -611,7 +640,9 @@ export function SupplierPurchaseModal({
               {editing ? "Editar pedido ao fornecedor" : "Novo pedido ao fornecedor"}
             </DialogTitle>
             <DialogDescription>
-              {itemsLocked
+              {initialShoppingItem
+                ? "Confira os dados da compra. Ao registrar, o item da lista será marcado como comprado e vinculado a este pedido."
+                : itemsLocked
                 ? "Corrija os dados do pedido sem alterar produtos que ja tiveram recebimento."
                 : "Registre o carrinho uma unica vez e distribua os produtos entre as ordens atendidas."}
             </DialogDescription>
@@ -875,13 +906,13 @@ export function SupplierPurchaseModal({
             <Field label="Observacoes"><Textarea value={header.notes} onChange={(event) => setHeaderField("notes", event.target.value)} placeholder="Contexto relevante sobre o pedido" /></Field>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button type="button" variant="outline" disabled={pending} onClick={onClose}>Cancelar</Button>
               <Button type="button" isLoading={pending} onClick={submit}>
                 {itemsLocked
                   ? "Salvar correcoes"
                   : editing
                     ? "Salvar pedido"
-                    : "Registrar pedido"}
+                    : initialShoppingItem ? "Registrar pedido e marcar comprado" : "Registrar pedido"}
               </Button>
             </div>
           </div>

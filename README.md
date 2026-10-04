@@ -112,5 +112,6 @@ pnpm build
 
 - [Arquitetura](./docs/architecture.md)
 - [Estado atual da V2](./docs/current-state.md)
+- [Listas de compras](./docs/shopping-lists.md)
 - [Identidade visual JC Materiais](./docs/brand/jc-materiais/README.md)
 - [Onboarding, acesso e assinatura SaaS](./docs/saas-onboarding-and-access.md)
