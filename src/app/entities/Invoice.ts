@@ -1,11 +1,15 @@
 export type InvoiceStatus = "DRAFT" | "ISSUED" | "CANCELLED";
+export type InvoiceOperationType = "SALE" | "SALES_RETURN" | "PURCHASE_RETURN";
 export type ReceivableStatus =
   | "NOT_ISSUED"
+  | "NOT_APPLICABLE"
+  | "RETURNED"
   | "OPEN"
   | "OVERDUE"
   | "PARTIALLY_RECEIVED"
   | "RECEIVED"
   | "CANCELLED";
+// Fiscal returns remain visible without creating a customer receivable.
 export type ReceivablePaymentStatus = "CONFIRMED" | "CANCELLED";
 
 export type InvoiceItem = {
@@ -37,6 +41,10 @@ export type Invoice = {
   entityId: string;
   purchaseOrderId?: string;
   customerId?: string;
+  operationType: InvoiceOperationType;
+  referencedInvoiceId?: string;
+  documentAmount: number;
+  returnedAmount: number;
   invoiceNumber: string;
   issuedAt: string;
   dueAt: string;
@@ -57,6 +65,8 @@ export type Invoice = {
 
 export type InvoiceInput = {
   customerId?: string;
+  operationType?: InvoiceOperationType;
+  referencedInvoiceId?: string | null;
   invoiceNumber: string;
   issuedAt: string;
   dueAt: string;

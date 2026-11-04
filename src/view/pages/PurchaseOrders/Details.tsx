@@ -98,6 +98,8 @@ const invoiceStatusLabels = {
 } satisfies Record<Invoice["status"], string>;
 
 const receivableStatusLabels = {
+  NOT_APPLICABLE: "Sem cobrança",
+  RETURNED: "Venda devolvida",
   NOT_ISSUED: "Ainda nao emitida",
   OPEN: "Em aberto",
   OVERDUE: "Vencida",

@@ -53,6 +53,8 @@ const filterStatuses: ReceivableFilterStatus[] = [
   "RECEIVED",
   "NOT_ISSUED",
   "CANCELLED",
+  "NOT_APPLICABLE",
+  "RETURNED",
 ];
 
 const statusLabels: Record<ReceivableFilterStatus, string> = {
@@ -64,6 +66,8 @@ const statusLabels: Record<ReceivableFilterStatus, string> = {
   PARTIALLY_RECEIVED: "Recebidas parcialmente",
   RECEIVED: "Quitadas",
   CANCELLED: "Canceladas",
+  NOT_APPLICABLE: "Devoluções sem cobrança",
+  RETURNED: "Vendas devolvidas",
 };
 
 const statusClasses: Record<Receivable["receivableStatus"], string> = {
@@ -73,6 +77,8 @@ const statusClasses: Record<Receivable["receivableStatus"], string> = {
   PARTIALLY_RECEIVED: "bg-amber-500/10 text-amber-300",
   RECEIVED: "bg-emerald-500/10 text-emerald-300",
   CANCELLED: "bg-zinc-500/10 text-zinc-400",
+  NOT_APPLICABLE: "bg-violet-500/10 text-violet-300",
+  RETURNED: "bg-violet-500/10 text-violet-300",
 };
 
 const sortLabels: Record<ReceivableSort, string> = {
@@ -530,6 +536,7 @@ function ReceivableCard({
                 {receivable.daysOverdue} dia(s) em atraso
               </span>
             )}
+            {receivable.operationType !== "SALE" && <span className="text-xs text-muted-foreground">{receivable.operationType === "SALES_RETURN" ? "Devolução de venda" : "Devolução de compra"}</span>}
           </div>
           <h3 className="mt-3 truncate text-lg font-semibold">
             {receivable.customerName}
@@ -537,6 +544,8 @@ function ReceivableCard({
           <p className="mt-1 text-sm text-muted-foreground">
             Nota {receivable.invoiceNumber} · {receivable.orderNumber ? `OC ${receivable.orderNumber}` : "Sem ordem de compra"}
           </p>
+          {receivable.returnedAmount > 0 && <p className="mt-1 text-xs text-violet-300">Devolvido: {formatCurrency(receivable.returnedAmount)} · valor da nota {formatCurrency(receivable.documentAmount)}</p>}
+          {receivable.operationType === "SALES_RETURN" && !receivable.referencedInvoiceId && <p className="mt-1 text-xs text-amber-300">Conferir vínculo com a venda original.</p>}
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <IconCalendarDue className="size-3.5" />
             Emitida em {formatDate(receivable.issuedAt)} - vence em {" "}
@@ -568,8 +577,7 @@ function ReceivableCard({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="text-muted-foreground">
-              {formatCurrency(receivable.receivedAmount)} recebido de {" "}
-              {formatCurrency(receivable.netReceivableAmount)}
+              {receivable.operationType !== "SALE" ? `Valor do documento: ${formatCurrency(receivable.documentAmount)}` : `${formatCurrency(receivable.receivedAmount)} recebido de ${formatCurrency(receivable.netReceivableAmount)}`}
             </span>
             <span className="font-medium">{receivedPercent}%</span>
           </div>

@@ -15,7 +15,7 @@ export function useInvoices(params: GetInvoicesParams, enabled = true) {
     ],
     queryFn: () => invoiceService.getAll(params),
     enabled:
-      enabled && Boolean(params.entityId) && Boolean(params.purchaseOrderId),
+      enabled && Boolean(params.entityId),
   });
 
   return {

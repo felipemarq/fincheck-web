@@ -9,6 +9,7 @@ import { QueryKeys } from "@/app/config/QueryKeys";
 import type { Invoice } from "@/app/entities/Invoice";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useCustomers } from "@/app/hooks/useCustomers";
+import { useInvoices } from "@/app/hooks/useInvoices";
 import { invoiceService } from "@/app/services/invoiceService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
 import { todayDateInput } from "@/app/utils/todayDateInput";
@@ -53,6 +54,8 @@ const itemSchema = z.object({
 const schema = z
   .object({
     customerId: z.string().min(1, "Selecione o cliente."),
+    operationType: z.enum(["SALE", "SALES_RETURN", "PURCHASE_RETURN"]),
+    referencedInvoiceId: z.string(),
     invoiceNumber: z
       .string()
       .trim()
@@ -111,6 +114,8 @@ function makeValues(invoice?: Invoice): FormData {
   const issuedAt = invoice?.issuedAt.slice(0, 10) ?? todayDateInput();
   return {
     customerId: invoice?.customerId ?? "",
+    operationType: invoice?.operationType ?? "SALE",
+    referencedInvoiceId: invoice?.referencedInvoiceId ?? "",
     invoiceNumber: invoice?.invoiceNumber ?? "",
     issuedAt,
     dueAt: invoice?.dueAt.slice(0, 10) ?? after30Days(issuedAt),
@@ -141,7 +146,7 @@ export function StandaloneInvoiceModal({
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
   const customersQuery = useCustomers({ entityId: selectedEntityId ?? "" });
-  const financialLocked = Boolean(invoice && invoice.receivedAmount > 0);
+  const financialLocked = Boolean(invoice && (invoice.receivedAmount > 0 || invoice.returnedAmount > 0));
   const {
     register,
     control,
@@ -154,6 +159,7 @@ export function StandaloneInvoiceModal({
   });
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const values = useWatch({ control });
+  const sourceInvoices = useInvoices({entityId: selectedEntityId ?? ""}, values.operationType === "SALES_RETURN");
   const gross = roundMoney(
     (values.items ?? []).reduce(
       (sum, item) =>
@@ -161,12 +167,13 @@ export function StandaloneInvoiceModal({
       0,
     ),
   );
-  const net = Math.max(roundMoney(gross - (values.otherDeductions ?? 0)), 0);
+  const net = values.operationType === "SALE" ? Math.max(roundMoney(gross - (values.otherDeductions ?? 0) - (invoice?.returnedAmount ?? 0)), 0) : 0;
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       if (!selectedEntityId) throw new Error("Selecione uma organização.");
       const payload = {
         ...data,
+        referencedInvoiceId: data.operationType === "SALES_RETURN" && data.referencedInvoiceId ? data.referencedInvoiceId : invoice ? null : undefined,
         entityId: selectedEntityId,
         issuedAt: `${data.issuedAt}T12:00:00.000Z`,
         dueAt: `${data.dueAt}T12:00:00.000Z`,
@@ -240,6 +247,12 @@ export function StandaloneInvoiceModal({
           className="space-y-5"
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Tipo de nota">
+              <Controller control={control} name="operationType" render={({field}) => <Select value={field.value} disabled={financialLocked} onValueChange={value=>{field.onChange(value);setValue("referencedInvoiceId", "");}}>
+                <SelectTrigger aria-label="Tipo de nota" className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="SALE">Venda</SelectItem><SelectItem value="SALES_RETURN">Devolução de venda</SelectItem><SelectItem value="PURCHASE_RETURN">Devolução de compra</SelectItem></SelectContent>
+              </Select>} />
+            </Field>
             <Field label="Cliente" error={errors.customerId?.message}>
               <Controller
                 control={control}
@@ -329,6 +342,14 @@ export function StandaloneInvoiceModal({
               />
             </Field>
           </div>
+          {values.operationType === "SALES_RETURN" && <Field label="Venda original (opcional)">
+            <Controller control={control} name="referencedInvoiceId" render={({field}) => <Select value={field.value || "none"} disabled={financialLocked || sourceInvoices.isLoading} onValueChange={value=>field.onChange(value === "none" ? "" : value)}>
+              <SelectTrigger className="w-full" aria-label="Venda original"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="none">Vínculo a conferir</SelectItem>{sourceInvoices.invoices?.filter(source=>source.id!==invoice?.id && source.customerId===values.customerId && source.operationType === "SALE" && source.status === "ISSUED").map(source=><SelectItem key={source.id} value={source.id}>Nota {source.invoiceNumber} — {formatCurrency(source.documentAmount)}</SelectItem>)}</SelectContent>
+            </Select>} />
+            <p className="text-xs text-muted-foreground">O vínculo abate o valor devolvido do saldo da venda. Sem vínculo, confira a origem antes de cobrar o cliente.</p>
+            {sourceInvoices.isError && <p className="text-xs text-destructive">Não foi possível carregar as vendas. <Button type="button" variant="link" onClick={()=>sourceInvoices.refetch()}>Tentar novamente</Button></p>}
+          </Field>}
           <div className="space-y-3">
             <h3 className="font-semibold">Itens da nota</h3>
             {fields.map((field, index) => (
