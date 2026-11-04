@@ -71,6 +71,11 @@ const routeMeta = [
     description: "Calculo rapido de precos para cotacoes.",
   },
   {
+    matcher: (pathname: string) => pathname === "/invoices",
+    title: "Notas fiscais",
+    description: "Cadastro e acompanhamento de notas, com ou sem ordem de compra.",
+  },
+  {
     matcher: (pathname: string) => pathname === "/receivables",
     title: "Contas a receber",
     description: "Vencimentos, saldos e pagamentos dos clientes.",
