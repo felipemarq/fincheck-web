@@ -541,6 +541,7 @@ function ReceivableCard({
           <h3 className="mt-3 truncate text-lg font-semibold">
             {receivable.customerName}
           </h3>
+          <p className="text-xs text-muted-foreground">CPF/CNPJ do cliente: {receivable.customerDocument}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Nota {receivable.invoiceNumber} · {receivable.orderNumber ? `OC ${receivable.orderNumber}` : "Sem ordem de compra"}
           </p>

@@ -260,7 +260,7 @@ export function StandaloneInvoiceModal({
                 render={({ field }) => (
                   <Select
                     value={field.value}
-                    onValueChange={field.onChange}
+                    onValueChange={value=>{field.onChange(value);setValue("referencedInvoiceId", "");}}
                     disabled={financialLocked || customersQuery.isLoading}
                   >
                     <SelectTrigger
@@ -272,7 +272,7 @@ export function StandaloneInvoiceModal({
                     <SelectContent>
                       {customersQuery.customers?.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
-                          {customer.tradeName || customer.legalName}
+                          {customer.tradeName || customer.legalName} — {customer.document}
                         </SelectItem>
                       ))}
                     </SelectContent>
