@@ -23,3 +23,10 @@ rollback, no bucket `moneystack-frontend` e distribuição `E25QMGVM17EIA6`, sem
 com perfil AWS `felipe` e conta `379443323181` verificada. Veja também a documentação
 de implantação do módulo de notas no repositório da API; não publique a stack
 principal antiga.
+
+Publicado em 03/11/2026 (São Paulo): código Web
+`7d0499e4b9b650e692ff62916332b2a6d6372394`, branch
+`codex/independent-invoices`. A invalidação
+`I28GB9JQW2ZRGMU12RV2Y5QHV6` foi concluída. HTML e assets publicados foram
+verificados, assim como o formulário e os registros antigos na sessão existente.
+O relatório completo está em `fincheck-api/docs/independent-invoices-release.md`.
