@@ -230,7 +230,7 @@ export function StandaloneInvoiceModal({
         {orderChoice}
         {financialLocked && (
           <p className="rounded-xl border border-amber-400/25 bg-amber-500/5 p-3 text-sm">
-            Esta nota já possui recebimentos. Você pode ajustar o vencimento e
+            Esta nota possui recebimentos ou devoluções. Você pode ajustar o vencimento e
             as observações.
           </p>
         )}

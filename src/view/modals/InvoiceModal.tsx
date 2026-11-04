@@ -184,7 +184,7 @@ export function InvoiceModal({
   const { selectedEntityId } = useAuth();
   const queryClient = useQueryClient();
   const isEditing = Boolean(invoice);
-  const financialLocked = (invoice?.receivedAmount ?? 0) > 0;
+  const financialLocked = (invoice?.receivedAmount ?? 0) > 0 || (invoice?.returnedAmount ?? 0) > 0;
   const {
     control,
     register,
@@ -216,7 +216,7 @@ export function InvoiceModal({
         (item.invoicedQuantity || 0) * (item.unitPrice || 0),
       0
     );
-  const netReceivable = Math.max(grossAmount - otherDeductions, 0);
+  const netReceivable = Math.max(grossAmount - otherDeductions - (invoice?.returnedAmount ?? 0), 0);
 
   const refresh = async () => {
     await Promise.all([
@@ -317,7 +317,7 @@ export function InvoiceModal({
         {financialLocked && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-400/25 bg-amber-400/5 p-4 text-sm text-amber-100">
             <IconAlertTriangle className="mt-0.5 size-5 shrink-0" />
-            Esta nota ja possui recebimentos. Apenas vencimento e
+            Esta nota possui recebimentos ou devoluções. Apenas vencimento e
             observacoes podem ser alterados.
           </div>
         )}
