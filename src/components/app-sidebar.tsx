@@ -93,6 +93,12 @@ const navMain: Array<{
     permission: "products.read",
   },
   {
+    title: "Notas fiscais",
+    url: "/invoices",
+    icon: IconFileInvoice,
+    permission: "finance.read",
+  },
+  {
     title: "Contas a receber",
     url: "/receivables",
     icon: IconCashBanknote,

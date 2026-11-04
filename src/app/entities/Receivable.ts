@@ -10,7 +10,7 @@ export type ReceivableSort =
   | "ISSUED_DESC";
 
 export type Receivable = Invoice & {
-  orderNumber: string;
+  orderNumber?: string;
   orderExternalNumber?: string;
   customerId: string;
   customerName: string;

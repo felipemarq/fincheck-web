@@ -14,6 +14,7 @@ import type {
 import { useAuth } from "@/app/hooks/useAuth";
 import { invoiceService } from "@/app/services/invoiceService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
+import { todayDateInput } from "@/app/utils/todayDateInput";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,7 +50,7 @@ type PaymentFormData = z.infer<typeof paymentSchema>;
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
   invoice: Invoice | null;
   payment?: ReceivablePayment | null;
 };
@@ -61,7 +62,7 @@ function makeValues(
   return {
     receivedAt:
       payment?.receivedAt.slice(0, 10) ??
-      new Date().toISOString().slice(0, 10),
+      todayDateInput(),
     amount: payment?.amount ?? invoice.outstandingAmount,
     paymentMethod: payment?.paymentMethod ?? "PIX",
     reference: payment?.reference ?? "",
@@ -110,7 +111,6 @@ export function ReceivablePaymentModal({
         queryKey: [
           QueryKeys.INVOICES,
           selectedEntityId,
-          purchaseOrderId,
         ],
       }),
       queryClient.invalidateQueries({

@@ -202,7 +202,7 @@ export default function OperationsDashboardPage() {
             <div>
               <p className="font-semibold">Periodo analisado</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Ordens emitidas de {formatPeriodDate(period.issuedFrom)} ate{" "}
+                Emissões de {formatPeriodDate(period.issuedFrom)} até{" "}
                 {formatPeriodDate(period.issuedTo)}.
               </p>
               {isFetchingDashboard && (
@@ -277,8 +277,7 @@ export default function OperationsDashboardPage() {
           <div>
             <h2 className="text-lg font-semibold">Visao geral da operacao</h2>
             <p className="text-sm text-muted-foreground">
-              Quantidades operacionais e resultado financeiro das ordens ativas
-              emitidas no periodo selecionado.
+              Operação e margens das ordens ativas emitidas no período selecionado.
               Clique em um indicador operacional para abrir suas ordens em
               outra aba.
             </p>
@@ -338,17 +337,14 @@ export default function OperationsDashboardPage() {
             label="Custo operacional"
             value={
               financial.acquisitionCost +
-              financial.deliveryCost +
-              financial.taxCost +
-              financial.otherDeductions
+              financial.deliveryCost
             }
-            description="Compras, fretes, impostos e demais deducoes registradas."
+            description="Compras e fretes das ordens ativas do período. Custos fiscais aparecem abaixo."
           />
           <MoneyCard
-            label="Receita recebida"
-            value={financial.receivedRevenue}
-            description="Pagamentos dos clientes que ja foram confirmados."
-            tone="emerald"
+            label="Venda com custo conhecido"
+            value={financial.costCoveredRevenue ?? 0}
+            description="Valor de venda coberto pelas compras registradas nas ordens do período."
           />
           <MoneyCard
             label="Margem projetada"
@@ -362,6 +358,19 @@ export default function OperationsDashboardPage() {
             description={`Venda ja coberta por compras: ${formatCurrency(financial.costCoveredRevenue ?? 0)}, menos os custos registrados.`}
             tone={(financial.knownCostMargin ?? 0) < 0 ? "red" : "emerald"}
           />
+        </div>
+      </section>
+
+      <section className="space-y-4 rounded-3xl border p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h3 className="text-lg font-semibold">Faturamento das notas fiscais</h3><p className="mt-1 text-sm text-muted-foreground">Notas emitidas no período, com ou sem OC. Rascunhos e canceladas ficam fora dos valores.</p></div>
+          <Button variant="outline" asChild><Link to="/invoices"><IconFileInvoice /> Todas as notas</Link></Button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MoneyCard label="Faturamento bruto" value={financial.invoicedRevenue} description="Soma das notas emitidas no período." />
+          <MoneyCard label="Recebido dessas notas" value={financial.receivedRevenue} description="Recebimentos confirmados, incluindo baixas parciais." tone="emerald" />
+          <MoneyCard label="Saldo dessas notas" value={financial.receivableBalance} description="Valor líquido pendente de recebimento." />
+          <MoneyCard label="Custos fiscais e deduções" value={financial.taxCost + financial.otherDeductions} description="Impostos registrados e deduções dessas notas. As margens operacionais acima consideram somente OCs." />
         </div>
       </section>
 

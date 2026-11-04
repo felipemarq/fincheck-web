@@ -16,6 +16,7 @@ import type { PurchaseOrder } from "@/app/entities/PurchaseOrder";
 import { useAuth } from "@/app/hooks/useAuth";
 import { invoiceService } from "@/app/services/invoiceService";
 import { treatAxiosError } from "@/app/utils/treatAxiosError";
+import { todayDateInput } from "@/app/utils/todayDateInput";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -119,7 +120,7 @@ type Props = {
 };
 
 function todayInput() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDateInput();
 }
 
 function dueInput() {

@@ -10,7 +10,7 @@ export type ReceivablePaymentStatus = "CONFIRMED" | "CANCELLED";
 
 export type InvoiceItem = {
   id?: string;
-  purchaseOrderItemId: string;
+  purchaseOrderItemId?: string;
   lineNumber: number;
   description: string;
   originalUnit: string;
@@ -35,7 +35,8 @@ export type ReceivablePayment = {
 export type Invoice = {
   id: string;
   entityId: string;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
+  customerId?: string;
   invoiceNumber: string;
   issuedAt: string;
   dueAt: string;
@@ -55,6 +56,7 @@ export type Invoice = {
 };
 
 export type InvoiceInput = {
+  customerId?: string;
   invoiceNumber: string;
   issuedAt: string;
   dueAt: string;
@@ -64,7 +66,9 @@ export type InvoiceInput = {
   notes?: string | null;
   items: Array<{
     id?: string;
-    purchaseOrderItemId: string;
+    purchaseOrderItemId?: string;
+    description?: string;
+    originalUnit?: string;
     invoicedQuantity: number;
     unitPrice: number;
     notes?: string;

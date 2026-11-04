@@ -18,6 +18,7 @@ export function useOperationsDashboard(
     ],
     queryFn: () => operationsDashboardService.get(entityId, params),
     enabled: enabled && Boolean(entityId),
+    refetchInterval: 60_000,
     placeholderData: (previousData, previousQuery) =>
       previousQuery?.queryKey[1] === entityId ? previousData : undefined,
   });

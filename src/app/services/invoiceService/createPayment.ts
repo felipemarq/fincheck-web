@@ -3,10 +3,11 @@ import type {
   ReceivablePaymentInput,
 } from "@/app/entities/Invoice";
 import { httpClient } from "../httpClient";
+import { invoicePath } from "./invoicePath";
 
 export type CreatePaymentParams = ReceivablePaymentInput & {
   entityId: string;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
   invoiceId: string;
 };
 
@@ -19,7 +20,7 @@ export async function createPayment({
   const { data } = await httpClient.post<{
     payment: ReceivablePayment;
   }>(
-    `/entities/${entityId}/purchase-orders/${purchaseOrderId}/invoices/${invoiceId}/payments`,
+    `${invoicePath(entityId, purchaseOrderId)}/${invoiceId}/payments`,
     body
   );
 

@@ -154,6 +154,7 @@ export const Router = () => {
               >
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/receivables" element={<Receivables />} />
+                <Route path="/invoices" element={<Receivables key="invoices" invoicesMode />} />
               </Route>
               <Route
                 element={

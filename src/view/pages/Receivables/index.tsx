@@ -8,6 +8,7 @@ import {
   IconChevronDown,
   IconEdit,
   IconFileInvoice,
+  IconPlus,
   IconRefresh,
   IconSearch,
   IconX,
@@ -40,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReceivablePaymentModal } from "@/view/modals/ReceivablePaymentModal";
+import { InvoiceEditor } from "@/view/modals/InvoiceEditor";
 import { formatCurrency } from "@/view/pages/PurchaseOrders/purchaseOrderPresentation";
 
 const filterStatuses: ReceivableFilterStatus[] = [
@@ -101,13 +103,15 @@ function formatDateInput(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export default function Receivables() {
-  const { selectedEntityId, activeEntity } = useAuth();
+export default function Receivables({ invoicesMode = false }: { invoicesMode?: boolean }) {
+  const { selectedEntityId, activeEntity, can } = useAuth();
+  const defaultStatus = invoicesMode ? "ALL" : "PENDING";
+  const [invoiceTarget, setInvoiceTarget] = useState<Receivable | "new" | null>(null);
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [status, setStatus] = useState<ReceivableFilterStatus>(() =>
-    readInitialStatus(searchParams.get("status"))
+    readInitialStatus(searchParams.get("status") ?? defaultStatus)
   );
   const [sort, setSort] = useState<ReceivableSort>("URGENCY");
   const [dueFrom, setDueFrom] = useState("");
@@ -143,7 +147,7 @@ export default function Receivables() {
   const nextWeekInput = formatDateInput(nextWeek);
   const hasFilters =
     Boolean(search || dueFrom || dueTo) ||
-    status !== "PENDING" ||
+    status !== defaultStatus ||
     sort !== "URGENCY";
 
   const updateStatus = (value: ReceivableFilterStatus) => {
@@ -160,7 +164,7 @@ export default function Receivables() {
 
   const clearFilters = () => {
     setSearch("");
-    setStatus("PENDING");
+    setStatus(defaultStatus);
     setSort("URGENCY");
     setDueFrom("");
     setDueTo("");
@@ -190,19 +194,17 @@ export default function Receivables() {
                 Ciclo financeiro do cliente
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-5xl">
-                Contas a receber
+                {invoicesMode ? "Notas fiscais" : "Contas a receber"}
               </h2>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
                 Acompanhe notas, vencimentos, pagamentos parciais e atrasos da {" "}
-                {activeEntity?.name ?? "organizacao ativa"} sem perder o vinculo
-                com a ordem e o cliente.
+                {activeEntity?.name ?? "organizacao ativa"}, com ou sem ordem de compra.
               </p>
             </div>
-            <Button variant="outline" size="lg" asChild>
-              <Link to="/orders">
-                <IconFileInvoice /> Abrir ordens para faturar
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {can("invoices.manage") && <Button size="lg" onClick={() => setInvoiceTarget("new")}><IconPlus /> Cadastrar nota fiscal</Button>}
+              <Button variant="outline" size="lg" asChild><Link to={invoicesMode ? "/receivables" : "/invoices"}><IconFileInvoice />{invoicesMode ? "Contas a receber" : "Todas as notas fiscais"}</Link></Button>
+            </div>
           </div>
           <IconCashBanknote className="absolute -bottom-10 -right-8 size-56 rotate-[-8deg] text-sky-300/[0.05]" />
         </section>
@@ -344,7 +346,7 @@ export default function Receivables() {
               </Button>
             </div>
 
-            {isFetching && (
+            {isFetching && !data && (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 Atualizando carteira...
               </p>
@@ -364,7 +366,7 @@ export default function Receivables() {
                 <IconCashBanknote className="mx-auto size-9 text-muted-foreground" />
                 <p className="mt-4 font-semibold">Nenhum recebivel encontrado</p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                  Ajuste os filtros ou emita uma nota no detalhe de uma ordem de compra.
+                  Ajuste os filtros ou cadastre uma nota fiscal, com ou sem OC.
                 </p>
               </div>
             )}
@@ -374,6 +376,9 @@ export default function Receivables() {
                 <ReceivableCard
                   key={receivable.id}
                   receivable={receivable}
+                  canManageInvoices={can("invoices.manage")}
+                  canManagePayments={can("payments.manage")}
+                  onEditInvoice={() => setInvoiceTarget(receivable)}
                   onReceive={() => setPaymentTarget({ invoice: receivable })}
                   onEditPayment={(payment) =>
                     setPaymentTarget({ invoice: receivable, payment })
@@ -415,10 +420,11 @@ export default function Receivables() {
       <ReceivablePaymentModal
         isOpen={Boolean(paymentTarget)}
         onClose={() => setPaymentTarget(null)}
-        purchaseOrderId={paymentTarget?.invoice.purchaseOrderId ?? ""}
+        purchaseOrderId={paymentTarget?.invoice.purchaseOrderId}
         invoice={paymentTarget?.invoice ?? null}
         payment={paymentTarget?.payment ?? null}
       />
+      {invoiceTarget && <InvoiceEditor key={`${selectedEntityId}-${invoiceTarget === "new" ? "new" : invoiceTarget.id}`} invoice={invoiceTarget === "new" ? undefined : invoiceTarget} onClose={() => setInvoiceTarget(null)} />}
     </>
   );
 }
@@ -480,10 +486,16 @@ function ReceivableCard({
   receivable,
   onReceive,
   onEditPayment,
+  onEditInvoice,
+  canManageInvoices,
+  canManagePayments,
 }: {
   receivable: Receivable;
   onReceive: () => void;
   onEditPayment: (payment: ReceivablePayment) => void;
+  onEditInvoice: () => void;
+  canManageInvoices: boolean;
+  canManagePayments: boolean;
 }) {
   const receivedPercent = receivable.netReceivableAmount
     ? Math.min(
@@ -494,12 +506,12 @@ function ReceivableCard({
       )
     : 0;
   const canReceive =
-    receivable.status === "ISSUED" && receivable.outstandingAmount > 0;
+    canManagePayments && receivable.status === "ISSUED" && receivable.outstandingAmount > 0;
 
   return (
     <article
       className={`overflow-hidden rounded-2xl border bg-card ${
-        receivable.receivableStatus === "OVERDUE"
+        receivable.daysOverdue > 0
           ? "border-red-500/30 bg-red-500/[0.025]"
           : ""
       }`}
@@ -523,14 +535,14 @@ function ReceivableCard({
             {receivable.customerName}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Nota {receivable.invoiceNumber} - Ordem {receivable.orderNumber}
+            Nota {receivable.invoiceNumber} · {receivable.orderNumber ? `OC ${receivable.orderNumber}` : "Sem ordem de compra"}
           </p>
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <IconCalendarDue className="size-3.5" />
             Emitida em {formatDate(receivable.issuedAt)} - vence em {" "}
             <span
               className={
-                receivable.receivableStatus === "OVERDUE" ? "text-red-300" : ""
+                receivable.daysOverdue > 0 ? "text-red-300" : ""
               }
             >
               {formatDate(receivable.dueAt)}
@@ -579,11 +591,12 @@ function ReceivableCard({
               <IconCashBanknote /> Registrar recebimento
             </Button>
           )}
-          <Button variant="outline" asChild>
+          {canManageInvoices && receivable.status !== "CANCELLED" && <Button variant="outline" onClick={onEditInvoice}><IconEdit /> Editar nota</Button>}
+          {receivable.purchaseOrderId && <Button variant="outline" asChild>
             <Link to={`/orders/${receivable.purchaseOrderId}`}>
               Abrir ordem <IconArrowRight />
             </Link>
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -652,13 +665,13 @@ function ReceivableCard({
                       {payment.status === "CANCELLED" ? " - cancelado" : ""}
                     </p>
                   </div>
-                  <Button
+                  {canManagePayments && payment.status !== "CANCELLED" && <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => onEditPayment(payment)}
                   >
                     <IconEdit /> Editar
-                  </Button>
+                  </Button>}
                 </div>
               ))}
             </div>

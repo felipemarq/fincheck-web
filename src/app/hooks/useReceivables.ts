@@ -21,5 +21,6 @@ export function useReceivables(params: GetReceivablesParams | null) {
     ],
     queryFn: () => receivableService.getAll(params!),
     enabled: Boolean(params?.entityId),
+    refetchInterval: 60_000,
   });
 }

@@ -1,9 +1,10 @@
 import type { Invoice, InvoiceInput } from "@/app/entities/Invoice";
 import { httpClient } from "../httpClient";
+import { invoicePath } from "./invoicePath";
 
 export type UpdateInvoiceParams = Partial<InvoiceInput> & {
   entityId: string;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
   invoiceId: string;
 };
 
@@ -14,7 +15,7 @@ export async function update({
   ...body
 }: UpdateInvoiceParams) {
   const { data } = await httpClient.patch<{ invoice: Invoice }>(
-    `/entities/${entityId}/purchase-orders/${purchaseOrderId}/invoices/${invoiceId}`,
+    `${invoicePath(entityId, purchaseOrderId)}/${invoiceId}`,
     body
   );
 

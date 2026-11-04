@@ -3,10 +3,11 @@ import type {
   ReceivablePaymentInput,
 } from "@/app/entities/Invoice";
 import { httpClient } from "../httpClient";
+import { invoicePath } from "./invoicePath";
 
 export type UpdatePaymentParams = Partial<ReceivablePaymentInput> & {
   entityId: string;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
   invoiceId: string;
   paymentId: string;
 };
@@ -21,7 +22,7 @@ export async function updatePayment({
   const { data } = await httpClient.patch<{
     payment: ReceivablePayment;
   }>(
-    `/entities/${entityId}/purchase-orders/${purchaseOrderId}/invoices/${invoiceId}/payments/${paymentId}`,
+    `${invoicePath(entityId, purchaseOrderId)}/${invoiceId}/payments/${paymentId}`,
     body
   );
 

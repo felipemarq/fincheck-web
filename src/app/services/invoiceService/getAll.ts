@@ -1,9 +1,10 @@
 import type { Invoice } from "@/app/entities/Invoice";
 import { httpClient } from "../httpClient";
+import { invoicePath } from "./invoicePath";
 
 export type GetInvoicesParams = {
   entityId: string;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
 };
 
 export async function getAll({
@@ -11,7 +12,7 @@ export async function getAll({
   purchaseOrderId,
 }: GetInvoicesParams) {
   const { data } = await httpClient.get<{ invoices: Invoice[] }>(
-    `/entities/${entityId}/purchase-orders/${purchaseOrderId}/invoices`
+    invoicePath(entityId, purchaseOrderId)
   );
 
   return data.invoices;

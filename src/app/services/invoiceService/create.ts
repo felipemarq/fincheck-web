@@ -1,9 +1,10 @@
 import type { Invoice, InvoiceInput } from "@/app/entities/Invoice";
 import { httpClient } from "../httpClient";
+import { invoicePath } from "./invoicePath";
 
 export type CreateInvoiceParams = InvoiceInput & {
   entityId: string;
-  purchaseOrderId: string;
+  purchaseOrderId?: string;
 };
 
 export async function create({
@@ -12,7 +13,7 @@ export async function create({
   ...body
 }: CreateInvoiceParams) {
   const { data } = await httpClient.post<{ invoice: Invoice }>(
-    `/entities/${entityId}/purchase-orders/${purchaseOrderId}/invoices`,
+    invoicePath(entityId, purchaseOrderId),
     body
   );
 
